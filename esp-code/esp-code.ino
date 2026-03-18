@@ -1,29 +1,35 @@
 #include  <Adafruit_BMP280.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <ESP8266mDNS.h>
 
 #define DEBUG_MODE    //Comment out to supress debug info in Serial
+#define NOWIFI        //Comment out when using RaspberryPI
 
-#define LED 2     //Status LED
-#define ERR 14    //Error LED
+#define LED 2         //Status LED ->built-in
+#define ERR 14        //Error LED -> D5
+#define PIR 13        //HC-SR501 -> D7
+
+
 
 Adafruit_BMP280 bmp;
 const char* ssid = "Antenne";
 const char* password = "REDACTED";
-
-const char* pi_hostname = "bpem";  
-const int pi_port = 8000;                  
-const char* pi_path = "/dataReader.php";        
-
+const char* target_ip="10.92.161.212:8000";
 String serverName;
 char buff[64]="";
+
+
+
+
+
+
 
 void setup()
 {
   Serial.begin(9600);
   pinMode(LED,OUTPUT);
   pinMode(ERR,OUTPUT);
+  pinMode(PIR,INPUT);
 
 /*---------------------------WIFI SETUP---------------------------*/
 #ifdef DEBUG_MODE
@@ -32,27 +38,20 @@ void setup()
   Serial.print("Connecting to ");
   Serial.print(ssid);
 #endif
+#ifndef NOWIFI
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
+#endif
   Serial.println("\nConnected!");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
-
-  if (!MDNS.begin("nodemcu")) {
-    #ifdef DEBUG_MODE
-    Serial.println("Error setting up MDNS responder!");
-    #endif
-  } else {
-    #ifdef DEBUG_MODE
-    Serial.println("mDNS responder started.");
-    #endif
-  }
 /*-----------------------END OF WIFI SETUP------------------------*/
 
+
 /*---------------------------BMP280 SETUP---------------------------*/
+
   if(bmp.begin(BMP280_ADDRESS_ALT))
   {
     Serial.print("\nBMP CONNECTED\n");
@@ -65,9 +64,14 @@ void setup()
   }
   else
       digitalWrite(ERR,HIGH);
+
+
 /*-----------------------END OF BMP280 SETUP------------------------*/
 
+
 }
+
+
 
 unsigned int count=0;
 
@@ -75,32 +79,17 @@ void loop()
 {
 
 #ifdef DEBUG_MODE
+  Serial.print("Temperature: ");
   Serial.print(bmp.readTemperature());
-  Serial.print("\n");
+  Serial.print(" Motion: ");
+  Serial.println(digitalRead(PIR));
+
 #endif
-
-/*---------------------------mDNS RESOLUTION---------------------------*/
-  IPAddress serverIP = MDNS.queryHost(pi_hostname);
-  
-  if (serverIP.toString() == "0.0.0.0") {
-    #ifdef DEBUG_MODE
-    Serial.println("mDNS resolution failed! Could not find the Raspberry Pi. Retrying...");
-    #endif
-    delay(2000); 
-    return;      
-  }
-
-  #ifdef DEBUG_MODE
-  Serial.print("Resolved Raspberry Pi IP: ");
-  Serial.println(serverIP);
-  #endif
-/*-----------------------END OF mDNS RESOLUTION------------------------*/
-
   WiFiClient wifi;
-  HTTPClient http;
 
 /*---------------------------HTTP CONNECTION---------------------------*/
-  snprintf(buff,sizeof(buff),"http://%s:%d%s", serverIP.toString().c_str(), pi_port, pi_path);
+  HTTPClient http;
+  snprintf(buff,sizeof(buff),"http://%s",target_ip);
   String path2server=String(buff);
   
   #ifdef DEBUG_MODE
@@ -109,30 +98,27 @@ void loop()
   #endif
   
   http.begin(wifi,path2server);
-  
-  http.addHeader("Content-Type","application/x-www-form-urlencoded");
+  http.addHeader("Content-type","application/json");
 
+  
   #ifdef DEBUG_MODE
   Serial.println("Connected to HTTP server");
   #endif
 
-  snprintf(buff,sizeof(buff),"t=%.2f&count=%d&pwd=REDACTEDPassword", bmp.readTemperature(), count);
+  snprintf(buff,sizeof(buff),"t=%.2f&pir=%d&count=%d",bmp.readTemperature(),digitalRead(PIR),count);
+  strcat(buff,"&admin");
   String post_req=String(buff);
-  
-  #ifdef DEBUG_MODE
   Serial.println(post_req);
-  #endif
 
+  http.GET();
   int httpResponseCode = http.POST(post_req);
 
-  #ifdef DEBUG_MODE
-  Serial.print("HTTP Response code: ");
-  Serial.println(httpResponseCode);
-  #endif
 
-  http.end();
+  if(httpResponseCode<0)
+    http.end();
 
 /*-----------------------END OF HTTP CONNECTION------------------------*/
+
 
   count++;
 
@@ -140,5 +126,5 @@ void loop()
   delay(400);
   digitalWrite(LED,LOW);
 
-  delay(1600); 
+
 }
