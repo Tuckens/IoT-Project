@@ -7,22 +7,18 @@
 #define LED 2     //Status LED
 #define ERR 14    //Error LED
 
-
-
 Adafruit_BMP280 bmp;
 const char* ssid = "Antenne";
 const char* password = "bulldograt25";
-const char* target_ip="10.92.161.212:8000";
+const char* target_ip="10.92.161.212:8000/data.php";
 String serverName;
 char buff[64]="";
-
 
 void setup()
 {
   Serial.begin(9600);
   pinMode(LED,OUTPUT);
   pinMode(ERR,OUTPUT);
-
 
 /*---------------------------WIFI SETUP---------------------------*/
 #ifdef DEBUG_MODE
@@ -41,9 +37,7 @@ void setup()
   Serial.println(WiFi.localIP());
 /*-----------------------END OF WIFI SETUP------------------------*/
 
-
 /*---------------------------BMP280 SETUP---------------------------*/
-
   if(bmp.begin(BMP280_ADDRESS_ALT))
   {
     Serial.print("\nBMP CONNECTED\n");
@@ -56,14 +50,9 @@ void setup()
   }
   else
       digitalWrite(ERR,HIGH);
-
-
 /*-----------------------END OF BMP280 SETUP------------------------*/
 
-
 }
-
-
 
 unsigned int count=0;
 
@@ -87,9 +76,10 @@ void loop()
   #endif
   
   http.begin(wifi,path2server);
-  http.addHeader("Content-type","application/json");
-
   
+  // CORRECTION : Bon Content-Type pour le format URL-encoded
+  http.addHeader("Content-Type","application/x-www-form-urlencoded");
+
   #ifdef DEBUG_MODE
   Serial.println("Connected to HTTP server");
   #endif
@@ -97,18 +87,23 @@ void loop()
   snprintf(buff,sizeof(buff),"t=%.2f&count=%d",bmp.readTemperature(),count);
   strcat(buff,"&admin");
   String post_req=String(buff);
+  
+  #ifdef DEBUG_MODE
   Serial.println(post_req);
+  #endif
 
-  http.GET();
+  // CORRECTION : Uniquement un POST (le GET a été supprimé)
   int httpResponseCode = http.POST(post_req);
 
+  #ifdef DEBUG_MODE
+  Serial.print("HTTP Response code: ");
+  Serial.println(httpResponseCode);
+  #endif
 
-  if(httpResponseCode<0)
-    http.end();
+  // CORRECTION : On ferme la connexion quoi qu'il arrive
+  http.end();
 
 /*-----------------------END OF HTTP CONNECTION------------------------*/
-
-
 
   count++;
 
@@ -116,5 +111,7 @@ void loop()
   delay(400);
   digitalWrite(LED,LOW);
 
+  // Pause ajoutée pour éviter de saturer le serveur Raspberry Pi
+  delay(1600); 
 
 }
