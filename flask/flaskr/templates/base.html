@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}{% endblock %} - Best Project</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav>
+    <h1>Best Project</h1>
+    <ul>
+      <li><a href="{{ url_for('auth.register') }}">Register</a></li>
+      <li><a href="{{ url_for('auth.login') }}">Log In</a></li>
+    </ul>
+  </nav>
+  <section class="content">
+    <header>
+      {% block header %}{% endblock %}
+    </header>
+
+    {# This loop displays error messages (like "Incorrect password") #}
+    {% for message in get_flashed_messages() %}
+      <div class="flash">{{ message }}</div>
+    {% endfor %}
+
+    {% block content %}{% endblock %}
+  </section>
+</body>
+</html>
