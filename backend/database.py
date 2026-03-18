@@ -96,3 +96,40 @@ def promote_to_admin(target_username, requester_username):
     finally:
         db.close()
 
+#Authentification
+
+
+def hashing(input):
+    output = ###TO DO
+    return output
+
+def check_password_hash(db_password, sent_password):
+    if(hashing(sent_password) == db_password): return True
+
+
+def login(username, pasword):
+    db = LocalSession()
+
+    try:
+        user = db.query(User).filter(User.username == username).first()
+        if not user:
+            print("User not found")
+
+        elif(check_password_hash(user.password_hash, pasword)):
+            print("Acess granted!")   # ACCESS ENDPOINT
+        else:
+            print("Incorret password!")
+
+    except Exception as e:
+        db.rollback()
+        return f"Error: {str(e)}"
+    finally:
+        db.close()
+
+        
+
+
+# TO DO: TESTING
+if __name__ == "__main__":
+
+
