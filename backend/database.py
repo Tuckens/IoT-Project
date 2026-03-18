@@ -35,18 +35,26 @@ Base.metadata.create_all(engine)
 
 def create_user(username, password):
     db = LocalSession()
-    try:
-        hashed_password = generate_password_hash(password)
-        new_user = User(username = username, password_hash = hashed_password)
 
-        if(new_user == db.query(User).filter(User.username == username).first()):
-            print("This user already exists")
-        else:
-            db.add(new_user)
-            db.commit()
-    except:
-        print("This user already exists")
-    db.close()
+    try:
+        existing_user = db.query(User).filter_by(username=username).first()
+        if existing_user:
+            print(f"User '{username}' already exists")
+            return
+
+        hashed_password = generate_password_hash(password)
+        new_user = User(username=username, password_hash=hashed_password)
+
+        db.add(new_user)
+        db.commit()
+        print("User created")
+
+    except Exception as e:
+        db.rollback()
+        print("Error:", e)
+
+    finally:
+        db.close()
 
 def delete_user(target_username, requester_username):
     db = LocalSession()
@@ -62,13 +70,14 @@ def delete_user(target_username, requester_username):
         if not requester:
             print("Requester doesn't exists")
                 
-        elif "admin" not in requester.permissions:
+        elif "Admin" not in requester.permissions:
             print("No admin permissions")
     
         else:
 
-            db.delete()
+            db.delete(target_user)
             db.commit()
+            print("Deleted")
         
     except Exception as e:
         db.rollback()
@@ -127,9 +136,15 @@ def login(username, pasword):
 
 # TO DO: TESTING
 if __name__ == "__main__":
-    create_user("Admin", "Admin")
+    db = LocalSession()
+    existing_admin = db.query(User).filter(User.username == "Admin").first()
+    if not existing_admin:
+        Admin = User(username="Admin", password_hash = generate_password_hash("Admin"), permissions = "Admin")
+        db.add(Admin)
+        db.commit()
+    db.close()
     create_user("user", "user")
 
     login("user", "user")
-    delete_user("Admin",)
-    create_user("Admin", "Admin")
+    delete_user("user", "Admin")
+    login("user", "user")
