@@ -7,8 +7,8 @@ def create_app():
     # Add a config.py which define DataBase Url
     # app.config.from_pyfile('../config.py')
 
-    from .main import main_bp
+    from .auth import auth_bp
 
-    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp)
 
     return app
