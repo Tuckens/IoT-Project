@@ -12,7 +12,7 @@ Adafruit_BMP280 bmp;
 const char* ssid = "Antenne";
 const char* password = "REDACTED";
 
-const char* pi_hostname = "BestPEM";  
+const char* pi_hostname = "bpem";  
 const int pi_port = 8000;                  
 const char* pi_path = "/dataReader.php";        
 
