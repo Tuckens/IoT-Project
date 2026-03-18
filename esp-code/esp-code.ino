@@ -1,6 +1,7 @@
 #include  <Adafruit_BMP280.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <ESP8266mDNS.h>
 
 #define DEBUG_MODE    //Comment out to supress debug info in Serial
 
@@ -10,7 +11,11 @@
 Adafruit_BMP280 bmp;
 const char* ssid = "Antenne";
 const char* password = "bulldograt25";
-const char* target_ip="10.92.161.212:8000/data.php";
+
+const char* pi_hostname = "BestPEM";  
+const int pi_port = 8000;                  
+const char* pi_path = "/dataReader.php";        
+
 String serverName;
 char buff[64]="";
 
@@ -35,6 +40,16 @@ void setup()
   Serial.println("\nConnected!");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
+
+  if (!MDNS.begin("nodemcu")) {
+    #ifdef DEBUG_MODE
+    Serial.println("Error setting up MDNS responder!");
+    #endif
+  } else {
+    #ifdef DEBUG_MODE
+    Serial.println("mDNS responder started.");
+    #endif
+  }
 /*-----------------------END OF WIFI SETUP------------------------*/
 
 /*---------------------------BMP280 SETUP---------------------------*/
@@ -63,11 +78,29 @@ void loop()
   Serial.print(bmp.readTemperature());
   Serial.print("\n");
 #endif
+
+/*---------------------------mDNS RESOLUTION---------------------------*/
+  IPAddress serverIP = MDNS.queryHost(pi_hostname);
+  
+  if (serverIP.toString() == "0.0.0.0") {
+    #ifdef DEBUG_MODE
+    Serial.println("mDNS resolution failed! Could not find the Raspberry Pi. Retrying...");
+    #endif
+    delay(2000); 
+    return;      
+  }
+
+  #ifdef DEBUG_MODE
+  Serial.print("Resolved Raspberry Pi IP: ");
+  Serial.println(serverIP);
+  #endif
+/*-----------------------END OF mDNS RESOLUTION------------------------*/
+
   WiFiClient wifi;
+  HTTPClient http;
 
 /*---------------------------HTTP CONNECTION---------------------------*/
-  HTTPClient http;
-  snprintf(buff,sizeof(buff),"http://%s",target_ip);
+  snprintf(buff,sizeof(buff),"http://%s:%d%s", serverIP.toString().c_str(), pi_port, pi_path);
   String path2server=String(buff);
   
   #ifdef DEBUG_MODE
@@ -77,7 +110,6 @@ void loop()
   
   http.begin(wifi,path2server);
   
-  // CORRECTION : Bon Content-Type pour le format URL-encoded
   http.addHeader("Content-Type","application/x-www-form-urlencoded");
 
   #ifdef DEBUG_MODE
@@ -92,7 +124,6 @@ void loop()
   Serial.println(post_req);
   #endif
 
-  // CORRECTION : Uniquement un POST (le GET a été supprimé)
   int httpResponseCode = http.POST(post_req);
 
   #ifdef DEBUG_MODE
@@ -100,7 +131,6 @@ void loop()
   Serial.println(httpResponseCode);
   #endif
 
-  // CORRECTION : On ferme la connexion quoi qu'il arrive
   http.end();
 
 /*-----------------------END OF HTTP CONNECTION------------------------*/
@@ -111,7 +141,5 @@ void loop()
   delay(400);
   digitalWrite(LED,LOW);
 
-  // Pause ajoutée pour éviter de saturer le serveur Raspberry Pi
   delay(1600); 
-
 }
