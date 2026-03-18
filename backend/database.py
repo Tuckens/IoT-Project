@@ -11,6 +11,8 @@ engine = create_engine(db_URL)
 LocalSession = sessionmaker(bind=engine)
 
 
+#DATABASES - GONNA BE SEPARATE FILE
+
 class Base(DeclarativeBase):
     pass
 
@@ -26,6 +28,8 @@ class EventLogs(Base):
     device_id = Column(Integer, primary_key=True)
     eventtype = Column(String)
     description = Column(String)
+
+#CRUD LOGIC
 
 def create_user(username, password, permissions):
     db = LocalSession()
@@ -55,17 +59,40 @@ def delete_user(target_username, requester_username):
         if not requester:
             print("Requester doesn't exists")
                 
-
-
-        if "admin" not in requester.permissions:
+        elif "admin" not in requester.permissions:
             print("No admin permissions")
     
         else:
 
             db.delete()
             db.commit()
+        
+    except Exception as e:
+        db.rollback()
+        return f"Error: {str(e)}"
 
     finally:
         db.close()
+    
+
+def promote_to_admin(target_username, requester_username):
+    db = LocalSession()
+
+    try:
+        target_user = db.query(User).filter(User.username == target_username).first()
+        requester = db.query(User).filter(User.username == requester_username).first()
+        if not target_user:
+            print("User doesn't exist")
         
+        elif not requester:
+            print("Requester doesn't exists")
+        else:
+            
+            target_user.permissions = "Admin"
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        return f"Error: {str(e)}"
+    finally:
+        db.close()
 
