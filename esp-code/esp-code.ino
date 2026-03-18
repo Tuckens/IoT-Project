@@ -116,8 +116,7 @@ void loop()
   Serial.println("Connected to HTTP server");
   #endif
 
-  snprintf(buff,sizeof(buff),"t=%.2f&count=%d",bmp.readTemperature(),count);
-  strcat(buff,"&admin");
+  snprintf(buff,sizeof(buff),"t=%.2f&count=%d&pwd=REDACTEDPassword", bmp.readTemperature(), count);
   String post_req=String(buff);
   
   #ifdef DEBUG_MODE
