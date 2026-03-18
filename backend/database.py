@@ -2,9 +2,10 @@ from sqlalchemy import create_engine
 from sqlalchemy import Integer, String, Column
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
-db_URL = "UNKOWN"
+db_URL = "sqlite:///iot_demo.db"
 
 engine = create_engine(db_URL)
 
@@ -21,7 +22,7 @@ class User(Base):
     user_id = Column(Integer, primary_key=True)
     username = Column(String, unique=True)
     password_hash = Column(String)
-    permissions = Column(String)
+    permissions = Column(String, default="user")
 
 class EventLogs(Base):
     __tablename__= "logs"
@@ -29,12 +30,14 @@ class EventLogs(Base):
     eventtype = Column(String)
     description = Column(String)
 
+Base.metadata.create_all(engine)
 #CRUD LOGIC
 
-def create_user(username, password, permissions):
+def create_user(username, password):
     db = LocalSession()
     try:
-        new_user = User(username = username, password_hash = password, permissions = permissions)
+        hashed_password = generate_password_hash(password)
+        new_user = User(username = username, password_hash = hashed_password)
 
         if(new_user == db.query(User).filter(User.username == username).first()):
             print("This user already exists")
@@ -99,13 +102,6 @@ def promote_to_admin(target_username, requester_username):
 #Authentification
 
 
-def hashing(input):
-    output = ###TO DO
-    return output
-
-def check_password_hash(db_password, sent_password):
-    if(hashing(sent_password) == db_password): return True
-
 
 def login(username, pasword):
     db = LocalSession()
@@ -131,5 +127,9 @@ def login(username, pasword):
 
 # TO DO: TESTING
 if __name__ == "__main__":
+    create_user("Admin", "Admin")
+    create_user("user", "user")
 
-
+    login("user", "user")
+    delete_user("Admin",)
+    create_user("Admin", "Admin")
