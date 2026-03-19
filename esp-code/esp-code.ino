@@ -11,7 +11,7 @@
 #define PIR 13          //HC-SR501 -> D7
 
 String pi_hostname = "bpem.local";  
-    
+
 
 
 Adafruit_BMP280 bmp;
@@ -29,7 +29,6 @@ void setup()
 
 /*---------------------------WIFI SETUP---------------------------*/
   WiFi.begin(ssid, password);
-  delay(1000);
 
 #ifdef DEBUG_MODE
   Serial.print("Connecting to ");
@@ -114,12 +113,12 @@ void loop()
   http.begin(wifi,buff);
   http.addHeader("Content-type","application/json");
 #endif
-snprintf(buff,sizeof(buff),"{\"id\":%d,\"temp\":%.2f,\"pir\":%d,\"user\":\"admin\",\"pass\":\"REDACTED-TOKEN\"}",
+snprintf(buff,sizeof(buff),"{\"id\":%d,\"temp\":%.2f,\"pir\":%d,\"user\":\"esp2866\",\"token\":\"REDACTED-TOKEN\"}",
                               count,bmp.readTemperature(),digitalRead(PIR));
 #ifdef DEBUG_MODE
 Serial.println(buff);
 #endif
-
+Serial.println(http.GET());
 #ifndef NOWIFI
   int httpResponseCode = http.POST((const uint8_t*)buff,strlen(buff));
   Serial.print("POST: ");
