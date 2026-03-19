@@ -1,4 +1,4 @@
-from .database import create_user
+from .db import create_user
 from flask import Blueprint, render_template
 from flask import request, jsonify
 
@@ -31,3 +31,24 @@ def api_register():
     else:
 
         return jsonify({"error": result["error"]}), result["status"]
+    
+    
+
+@auth_bp.route('/login',methods=['POST'])
+def api_login():
+    data = request.get_json()
+    
+    username = data.get('username')
+    password = data.get('password')
+    
+    result = login(username,password)
+    
+    if result["success"]:
+
+        return jsonify({"message": result["message"]}), result["status"]
+    else:
+    
+        return jsonify({"error": result["error"]}), result["status"]
+    
+
+
