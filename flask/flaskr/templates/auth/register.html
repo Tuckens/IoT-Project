@@ -128,38 +128,20 @@
     <div class="register-container">
         <h2>Créer un Compte</h2>
         
-        <form action="#" method="POST">
-            
-            <div class="input-row">
-                <div class="input-group">
-                    <label for="first_name">Prénom</label>
-                    <input type="text" id="first_name" name="first_name" required placeholder="Ex: Jean">
-                </div>
-                <div class="input-group">
-                    <label for="last_name">Nom de famille</label>
-                    <input type="text" id="last_name" name="last_name" required placeholder="Ex: Dupont">
-                </div>
-            </div>
+        <form id="userForm" action="#" method="POST">
+
             
             <div class="input-group">
-                <label for="username">Nom d'utilisateur</label>
+                <label for="username">Username</label>
                 <input type="text" id="username" name="username" required placeholder="Choisissez un pseudo">
             </div>
             
-            <div class="input-group">
-                <label for="email">Adresse Email</label>
-                <input type="email" id="email" name="email" required placeholder="nom@exemple.com">
-            </div>
             
             <div class="input-group">
-                <label for="password">Mot de passe</label>
+                <label for="password">Password</label>
                 <input type="password" id="password" name="password" required placeholder="Créez un mot de passe fort">
             </div>
             
-            <div class="input-group">
-                <label for="confirm_password">Confirmer le mot de passe</label>
-                <input type="password" id="confirm_password" name="confirm_password" required placeholder="Répétez le mot de passe">
-            </div>
             
             <button type="submit" class="register-btn">S'Inscrire</button>
             
@@ -171,4 +153,35 @@
     </div>
 
 </body>
+
+            <script>
+
+                document.getElementById('userForm').addEventListener('submit', async (e) => {
+                    e.preventDefault(); 
+
+                    const userData = {
+                        username : document.getElementById('username').value,
+                        password : document.getElementById('password')
+
+                    }
+
+                    const response = await fetch('http://127.0.0.1:5000/api/auth/register', {
+                        method : 'POST',
+                        headers : {
+                            'Content-Type' : 'application/json'
+                        }
+                        body : JSON.stringify(userData)
+                    })
+
+                    const result = await response.json();
+                    if(response.ok){
+                        alert("Succes : "+ result.message);
+
+                    }
+                    else {
+                        alert("Error : " + result.message);
+                    }
+                })
+
+            <script>
 </html>
