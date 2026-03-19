@@ -2,7 +2,7 @@ import os
 
 class Config:
     # Set to True to generate random sensor data 
-    MOCK_SENSORS = True
+    MOCK_SENSORS = False
     
     # Set to True to use the computer's local webcam instead of an external stream
     MOCK_VIDEO = True
@@ -13,3 +13,6 @@ class Config:
     
     # Secret key for sessions
     SECRET_KEY = os.environ.get('SECRET_KEY') or "dev-key-for-iot-dashboard"
+
+    # Shared secret for ESP authentication
+    ESP_TOKEN = os.environ.get('ESP_TOKEN') or "REDACTED-TOKEN"
