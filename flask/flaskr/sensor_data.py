@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from .db import log_sensor_data, record_camera_event, LocalSession, EventLogs
 from datetime import datetime, timedelta
+import random
 
 blog_bp = Blueprint('blog', __name__)
 
@@ -10,9 +11,35 @@ def index():
     return render_template('blog/index.html')
 
 
+@blog_bp.route('/config', methods=['GET'])
+def get_config():
+    """Return application configuration flags to the frontend."""
+    return jsonify({
+        "MOCK_SENSORS": current_app.config.get('MOCK_SENSORS', False),
+        "MOCK_VIDEO": current_app.config.get('MOCK_VIDEO', False)
+    })
+
+
 @blog_bp.route('/sensor_data', methods=['GET'])
 def get_sensor_data():
     """Return the last 10 seconds of temperature and motion data as JSON."""
+    if current_app.config.get('MOCK_SENSORS'):
+        # Generate random mock data
+        now = datetime.now()
+        temperature_data = []
+        motion_data = []
+        for i in range(10):
+            ts = (now - timedelta(seconds=10-i)).strftime("%H:%M:%S")
+            temperature_data.append(
+                {"timestamp": ts, "value": round(random.uniform(20.0, 25.0), 1)})
+            motion_data.append(
+                {"timestamp": ts, "value": random.choice([0, 1])})
+
+        return jsonify({
+            "temperature": temperature_data,
+            "motion": motion_data
+        })
+
     db = LocalSession()
     try:
         cutoff = datetime.now() - timedelta(seconds=10)
