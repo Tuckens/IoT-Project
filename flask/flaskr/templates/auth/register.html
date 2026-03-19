@@ -126,7 +126,7 @@
 <body>
 
     <div class="register-container">
-        <h2>Créer un Compte</h2>
+        <h2>Create an account</h2>
         
         <form id="userForm" action="#" method="POST">
 
@@ -141,47 +141,43 @@
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" required placeholder="Créez un mot de passe fort">
             </div>
-            
-            
-            <button type="submit" class="register-btn">S'Inscrire</button>
-            
+        
+            <input type="submit" id="submit_register" value="Send Message">
         </form>
         
         <div class="extra-links">
-            <p>Déjà inscrit ? <a href="{url_for{'auth.login'}}">Connectez-vous ici</a></p>
+            <p>Already sign in ? <a href="#">Sign in here</a></p>
         </div>
     </div>
 
 </body>
 
-            <script>
+<script>    
 
-                document.getElementById('userForm').addEventListener('submit', async (e) => {
-                    e.preventDefault(); 
+                        document.getElementById('userForm').addEventListener('submit', async (e) => {
+                            e.preventDefault(); 
 
-                    const userData = {
-                        username : document.getElementById('username').value,
-                        password : document.getElementById('password')
+                            const userData = {
+                                username : document.getElementById('username').value,
+                                password : document.getElementById('password').value
 
-                    }
+                            }
+                        })
 
-                    const response = await fetch('http://127.0.0.1:5000/api/auth/register', {
-                        method : 'POST',
-                        headers : {
-                            'Content-Type' : 'application/json'
-                        }
-                        body : JSON.stringify(userData)
-                    })
+                        console.log(userData)
 
-                    const result = await response.json();
-                    if(response.ok){
-                        alert("Succes : "+ result.message);
 
-                    }
-                    else {
-                        alert("Error : " + result.message);
-                    }
-                })
 
-            <script>
+                        const response = await fetch('/api/auth/register',{
+                            method : "POST",
+                            headers : {
+                                'Content-Type' : 'application/json'
+                            },
+                            body : JSON.stringify(userData)
+                        })
+
+
+                        const data = await response.json()
+                        console.log(data)
+</script>
 </html>
