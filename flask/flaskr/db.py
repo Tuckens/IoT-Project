@@ -51,7 +51,7 @@ def create_user(username, password):
 
         db.add(new_user)
         db.commit()
-        return {"success": True, "message": "User created successfully", "stauts": 201}
+        return {"success": True, "message": "User created successfully", "status": 201}
 
     except Exception as e:
         db.rollback()
@@ -149,6 +149,3 @@ if __name__ == "__main__":
         db.add(Admin)
         db.commit()
     db.close()
- 
-
-
