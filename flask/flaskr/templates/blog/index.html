@@ -222,12 +222,17 @@
                     style="display:none; position:absolute; top:10px; right:10px; background:rgba(255,165,0,0.8); color:black; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold; z-index:10;">
                     MOCK MODE</div>
 
+                <!-- Pi camera MJPEG stream -->
+                <img id="cameraStream" src="/api/camera/stream"
+                    style="width:100%; height:100%; object-fit:cover;" alt="Pi Camera">
+
+                <!-- Fallback local webcam (mock mode only) -->
                 <video id="localVideo" autoplay playsinline
                     style="display:none; width:100%; height:100%; object-fit: cover;"></video>
 
-                <div class="video-placeholder" id="videoPlaceholder">
+                <div class="video-placeholder" id="videoPlaceholder" style="display:none;">
                     <p>No video stream connected</p>
-                    <code id="streamInfo">Stream URL still to set in index.html</code>
+                    <code id="streamInfo">Waiting for camera…</code>
                 </div>
             </div>
         </div>
@@ -366,17 +371,13 @@
                 const response = await fetch('/api/blog/config');
                 const config = await response.json();
 
-                if (config.MOCK_SENSORS || config.MOCK_VIDEO) {
-                    document.getElementById('mockIndicator').style.display = 'block';
-                    mockMode = true;
-                }
-
                 if (config.MOCK_VIDEO) {
+                    // In mock mode: hide Pi stream, show local webcam
+                    document.getElementById('mockIndicator').style.display = 'block';
+                    document.getElementById('cameraStream').style.display = 'none';
                     startWebcam();
-                } else {
-                    // To fill here with the actual video stream when no mock mode
-                    // e.g. document.getElementById('videoFeed').style.display = 'block';
                 }
+                // Otherwise the Pi camera <img> stream is already active
             } catch (err) {
                 console.error('Failed to fetch config:', err);
             }
@@ -384,18 +385,15 @@
 
         async function startWebcam() {
             const video = document.getElementById('localVideo');
-            const placeholder = document.getElementById('videoPlaceholder');
-            const streamInfo = document.getElementById('streamInfo');
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
                 video.style.display = 'block';
-                placeholder.style.display = 'none';
-                streamInfo.textContent = "Using local computer camera (Mock Mode)";
             } catch (err) {
                 console.error("Error accessing webcam:", err);
-                placeholder.innerHTML = `<p style="color: #ff4d4d;">Webcam access denied</p><code style="background: rgba(255,0,0,0.1);">Enable camera permissions for mock mode</code>`;
+                document.getElementById('videoPlaceholder').style.display = 'flex';
+                document.getElementById('streamInfo').textContent = 'Webcam access denied';
             }
         }
 
