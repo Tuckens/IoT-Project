@@ -153,31 +153,36 @@
 </body>
 
 <script>    
-
-                        document.getElementById('userForm').addEventListener('submit', async (e) => {
-                            e.preventDefault(); 
-
-                            const userData = {
-                                username : document.getElementById('username').value,
-                                password : document.getElementById('password').value
-
-                            }
-                        })
-
-                        console.log(userData)
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+   
+        e.preventDefault(); 
 
 
+        const userData = {
+            username : document.getElementById('username').value,
+            password : document.getElementById('password').value
+        };
 
-                        const response = await fetch('/api/auth/register',{
-                            method : "POST",
-                            headers : {
-                                'Content-Type' : 'application/json'
-                            },
-                            body : JSON.stringify(userData)
-                        })
+        console.log(userData);
 
+        const response = await fetch('/api/auth/register', {
+            method : "POST",
+            headers : {
+                'Content-Type' : 'application/json'
+            },
+            body : JSON.stringify(userData)
+        });
 
-                        const data = await response.json()
-                        console.log(data)
+  
+        const data = await response.json();
+        console.log(data);
+
+        if (response.ok) {
+            alert("Succès ! " + (data.message || ""));
+        } else {
+            alert("Erreur ! " + (data.error || ""));
+        }
+
+    });
 </script>
 </html>
