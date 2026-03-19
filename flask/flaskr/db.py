@@ -1,10 +1,12 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, desc
 from sqlalchemy import Integer, String, Column
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import DateTime
 from sqlalchemy.sql import func
+import os
+from sqlalchemy import desc
 
 
 db_URL = "sqlite:///iot_demo.db"
@@ -30,7 +32,8 @@ class User(Base):
 
 class EventLogs(Base):
     __tablename__ = "logs"
-    device_id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_id = Column(Integer)
     eventtype = Column(String)
     description = Column(String)
     value = Column(Integer)
@@ -90,7 +93,7 @@ def delete_user(target_username, requester_username):
 
     except Exception as e:
         db.rollback()
-        return f"Error: {str(e)}"
+        return {"success": False, "error": str(e), "status": 400}
 
     finally:
         db.close()
@@ -132,7 +135,9 @@ def login(username, pasword):
             return {"success": False, "error": "User not found", "status": 404}
 
         elif (check_password_hash(user.password_hash, pasword)):
+            print("logged")
             return {"success": True, "message": "Welcome", "status": 200}
+
         else:
             return {"success": False, "error": "Wrong password", "status": 400}
 
@@ -143,10 +148,10 @@ def login(username, pasword):
         db.close()
 
 
-def log_sensor_data(event_type, description, val):
+def log_sensor_data(device_id, event_type, description, val):
     db = LocalSession()
     try:
-        new_log = EventLogs(eventtype=event_type,
+        new_log = EventLogs(device=device_id, eventtype=event_type,
                             description=description, value=val)
         db.add(new_log)
         db.commit()
@@ -158,11 +163,52 @@ def log_sensor_data(event_type, description, val):
         db.close()
 
 
+def record_camera_event(filename):
+    db = LocalSession()
+    try:
+        file_path = os.path.join("static/recordings", filename)
+        new_recording = EventLogs(eventtype="Recording", description=filename,
+                                  value=os.path.getsize(f"/home/pi/flaskr/{file_path}"))
+
+        db.add(new_recording)
+        db.commit()
+        return {"success": True, "message": "Recording saved", "status": 200}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": "Exception", "status": 400}
+    finally:
+        db.close()
+
+
+def get_recent_readings(limit=20):
+    db = LocalSession()
+    try:
+        readings = db.query(EventLogs)\
+                     .order_by(desc(EventLogs.timestamp))\
+                     .limit(limit)\
+                     .all()
+
+        readings.reverse()
+        chart_data = {
+            "labels": [r.timestamp.strftime("%H:%M:%S") for r in readings],
+            "values": [r.value for r in readings],
+            "count": len(readings)
+        }
+        return chart_data
+    except Exception as e:
+        print(f"Chart Data Error: {e}")
+        return {"labels": [], "values": [], "error": str(e)}
+    finally:
+        db.close()
+
+
 # TESTING
 if __name__ == "__main__":
     db = LocalSession()
-    Admin = User(username="admin", password_hash=generate_password_hash(
-        "admin"), permissions="Admin")
-    db.add(Admin)
-    db.commit()
+    existing_admin = db.query(User).filter(User.username == "Admin").first()
+    if not existing_admin:
+        Admin = User(username="Admin", password_hash=generate_password_hash(
+            "Admin"), permissions="Admin")
+        db.add(Admin)
+        db.commit()
     db.close()

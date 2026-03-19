@@ -6,8 +6,32 @@ from flask import request, jsonify
 auth_bp = Blueprint('auth', __name__)
 
 
-@auth_bp.route("/register", methods=["GET", "POST"])
-def register():
+@auth_bp.route('/index', methods=['GET'])
+def index():
+    return render_template('auth/index.html')
+
+
+@auth_bp.route('/login', methods=['GET', 'POST'])
+def api_login():
+    if request.method == "GET":
+        return render_template('auth/login.html')
+
+    data = request.get_json()
+
+    username = data.get('username')
+    password = data.get('password')
+
+    result = login(username, password)
+
+    if result["success"]:
+        return jsonify({"message": result["message"]}), result["status"]
+    else:
+
+        return jsonify({"error": result["error"]}), result["status"]
+
+
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def api_register():
 
     if request.method == 'GET':
         return render_template('auth/register.html')
@@ -18,22 +42,6 @@ def register():
     password = data.get('password')
 
     result = create_user(username, password)
-    if result["success"]:
-        return jsonify({"message": result["message"]}), result["status"]
-    else:
-        return jsonify({"error": result["error"]}), result["status"]
-
-
-@auth_bp.route('/login', methods=['POST', 'GET'])
-def api_login():
-    if request.method == 'GET':
-        return render_template('auth/login.html')
-    data = request.get_json()
-
-    username = data.get('username')
-    password = data.get('password')
-
-    result = login(username, password)
 
     if result["success"]:
 
