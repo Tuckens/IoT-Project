@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Page</title>
+    <style>
+        /* Base styling and centering */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* The main login card */
+        .login-container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 350px;
+        }
+
+        .login-container h2 {
+            text-align: center;
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+
+        /* Form input spacing and styling */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            /* Ensures padding doesn't widen the input */
+            font-size: 16px;
+        }
+
+        /* Highlight inputs when clicked */
+        .input-group input:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+        }
+
+        /* The submit button */
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .login-btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* Links at the bottom */
+        .extra-links {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .extra-links a {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .extra-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-container">
+        <h2>Admin : Delete user</h2>
+
+        <form id="deleteForm" action="#" method="POST">
+
+            <div class="input-group">
+                <label for="target_user">Target User</label>
+                <input type="text" id="target_user" name="target_user" required placeholder="target_user">
+            </div>
+
+            <div class="input-group">
+                <label for="request_user">Requester_user</label>
+                <input type="text" id="requester_user" name="request_user" required placeholder="requester">
+            </div>
+
+            <button type="submit" class="login-btn">delete him</button>
+
+        </form>
+
+    </div>
+    <script>
+        document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+
+            e.preventDefault();
+
+
+            const userData = {
+                target_user: document.getElementById('target_user').value,
+                requester_user: document.getElementById('requester_user').value
+            }
+
+            const response = await fetch('/api/auth/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            })
+
+            const result = await response.json();
+            console.log("Received response:", result);
+            if (response.ok) {
+                alert("Succes : " + result.message);
+
+            }
+            else {
+                alert("Error : " + result.message);
+            }
+        })
+
+    </script>
+</body>
+
+</html>
