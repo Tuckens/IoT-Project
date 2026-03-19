@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f1923;
+            color: #e0e6ed;
+            min-height: 100vh;
+        }
+
+        /* ── Top bar ── */
+        .topbar {
+            background: linear-gradient(135deg, #1a2738 0%, #243447 100%);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 123, 255, 0.25);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .topbar h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        .topbar h1 span {
+            color: #4da3ff;
+        }
+
+        .topbar .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 123, 255, 0.12);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #8bb8e8;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #22c55e;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* ── Main layout ── */
+        .dashboard {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 65px);
+        }
+
+        /* ── Left: video ── */
+        .video-panel {
+            flex: 55;
+            background: linear-gradient(145deg, #1a2738, #1e2d3d);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel-header {
+            padding: 14px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8bb8e8;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-header .icon {
+            width: 18px;
+            height: 18px;
+            opacity: 0.7;
+        }
+
+        .video-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0c1219;
+            position: relative;
+        }
+
+        .video-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .video-placeholder {
+            text-align: center;
+            color: #4a6a8a;
+        }
+
+        .video-placeholder .camera-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .video-placeholder p {
+            font-size: 14px;
+        }
+
+        .video-placeholder code {
+            display: inline-block;
+            margin-top: 8px;
+            background: rgba(0, 123, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #6aa3d4;
+        }
+
+        /* ── Right: charts ── */
+        .charts-panel {
+            flex: 45;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chart-card {
+            flex: 1;
+            background: linear-gradient(145deg, #1a2738, #1e2d3d);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chart-body {
+            flex: 1;
+            padding: 12px 16px 16px;
+            position: relative;
+            min-height: 0;
+        }
+
+        .chart-body canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .dashboard {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .video-panel {
+                min-height: 300px;
+            }
+
+            .chart-card {
+                min-height: 250px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar">
+        <h1><span>IoT</span> Dashboard</h1>
+        <div class="status-pill">
+            <div class="status-dot"></div>
+            Live
+        </div>
+    </div>
+
+    <div class="dashboard">
+
+        <!-- LEFT: Video Feed -->
+        <div class="video-panel">
+            <div class="panel-header">
+                Live Camera Feed
+            </div>
+            <div class="video-container">
+                <!--
+                    Replace the placeholder below with your actual video stream.
+                    Examples:
+                      MJPEG from Raspberry Pi:  <img src="http://<PI_IP>:8080/video" alt="Camera Feed">
+                      Flask route:              <img src="/api/blog/video_feed" alt="Camera Feed">
+                -->
+                <div class="video-placeholder" id="videoPlaceholder">
+                    <p>No video stream connected</p>
+                    <code>Set your stream URL in index.html</code>
+                </div>
+                <!-- <img id="videoFeed" src="/api/blog/video_feed" alt="Camera Feed"> -->
+            </div>
+        </div>
+
+        <!-- RIGHT: Charts -->
+        <div class="charts-panel">
+
+            <!-- Temperature Chart -->
+            <div class="chart-card">
+                <div class="panel-header">
+                    Temperature (last 10s)
+                </div>
+                <div class="chart-body">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Motion Chart -->
+            <div class="chart-card">
+                <div class="panel-header">
+                    Motion Sensor (last 10s)
+                </div>
+                <div class="chart-body">
+                    <canvas id="motionChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ─── Chart configuration ─── */
+
+        const chartDefaults = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 300 },
+            scales: {
+                x: {
+                    ticks: { color: '#6b8aaa', font: { size: 11 } },
+                    grid: { color: 'rgba(255,255,255,0.04)' }
+                },
+                y: {
+                    ticks: { color: '#6b8aaa', font: { size: 11 } },
+                    grid: { color: 'rgba(255,255,255,0.06)' }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        };
+
+        /* ── Temperature chart ── */
+        const tempCtx = document.getElementById('tempChart').getContext('2d');
+        const tempChart = new Chart(tempCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: [],
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#f97316',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                ...chartDefaults,
+                scales: {
+                    ...chartDefaults.scales,
+                    y: {
+                        ...chartDefaults.scales.y,
+                        title: { display: true, text: '°C', color: '#6b8aaa' }
+                    }
+                }
+            }
+        });
+
+        /* ── Motion chart ── */
+        const motionCtx = document.getElementById('motionChart').getContext('2d');
+        const motionChart = new Chart(motionCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Motion',
+                    data: [],
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#22c55e',
+                    stepped: true,
+                    fill: true
+                }]
+            },
+            options: {
+                ...chartDefaults,
+                scales: {
+                    ...chartDefaults.scales,
+                    y: {
+                        ...chartDefaults.scales.y,
+                        min: -0.1,
+                        max: 1.1,
+                        ticks: {
+                            ...chartDefaults.scales.y.ticks,
+                            stepSize: 1,
+                            callback: function (value) {
+                                if (value === 0) return 'No motion';
+                                if (value === 1) return 'Motion';
+                                return '';
+                            }
+                        },
+                        title: { display: true, text: 'Status', color: '#6b8aaa' }
+                    }
+                }
+            }
+        });
+
+        /* ─── Polling logic ─── */
+
+        async function fetchSensorData() {
+            try {
+                const response = await fetch('/api/blog/sensor_data');
+                if (!response.ok) {
+                    console.error('Sensor API error:', response.status);
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('Sensor data:', data);
+
+                // Update temperature chart
+                tempChart.data.labels = data.temperature.map(d => d.timestamp);
+                tempChart.data.datasets[0].data = data.temperature.map(d => d.value);
+                tempChart.update();
+
+                // Update motion chart
+                motionChart.data.labels = data.motion.map(d => d.timestamp);
+                motionChart.data.datasets[0].data = data.motion.map(d => d.value);
+                motionChart.update();
+
+            } catch (err) {
+                console.error('Failed to fetch sensor data:', err);
+            }
+        }
+
+        // Poll every 1 second
+        setInterval(fetchSensorData, 1000);
+
+        // Initial fetch
+        fetchSensorData();
+    </script>
+
+</body>
+
+</html>
