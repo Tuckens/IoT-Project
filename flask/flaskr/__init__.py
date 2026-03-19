@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, redirect, url_for
 
 
 def create_app():
@@ -7,8 +7,7 @@ def create_app():
     # Add a config.py which define DataBase Url
     # app.config.from_pyfile('../config.py')
 
-    from .main import main_bp
-
-    app.register_blueprint(main_bp)
+    from . import auth
+    app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
 
     return app
