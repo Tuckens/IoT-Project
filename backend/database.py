@@ -129,7 +129,7 @@ def login(username, pasword):
         elif (check_password_hash(user.password_hash, pasword)):
             print("Acess granted!")   # ACCESS ENDPOINT
         else:
-            print("Incorret password!")
+            print("Incorrect password!")
 
     except Exception as e:
         db.rollback()
