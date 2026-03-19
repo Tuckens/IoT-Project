@@ -112,9 +112,9 @@ def receive_esp_data():
 
     Creates two EventLogs rows per request: one for temperature, one for motion.
     """
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True)
     if not data:
-        return jsonify({"error": "No JSON body"}), 400
+        return jsonify({"error": "No JSON body or invalid JSON"}), 400
 
     # --- Basic token validation ---
     expected_token = current_app.config.get('ESP_TOKEN', 'secretpass')
