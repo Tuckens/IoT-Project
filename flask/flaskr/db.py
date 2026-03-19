@@ -3,6 +3,8 @@ from sqlalchemy import Integer, String, Column
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import DateTime
+from sqlalchemy.sql import func
 
 
 db_URL = "sqlite:///iot_demo.db"
@@ -31,6 +33,8 @@ class EventLogs(Base):
     device_id = Column(Integer, primary_key=True)
     eventtype = Column(String)
     description = Column(String)
+    value = Column(Integer)
+    timestamp = Column(DateTime, server_default=func.now())
 
 
 Base.metadata.create_all(engine)
@@ -51,7 +55,7 @@ def create_user(username, password):
 
         db.add(new_user)
         db.commit()
-        return {"success": True, "message": "User created successfully", "stauts": 201}
+        return {"success": True, "message": "User created successfully", "status": 201}
 
     except Exception as e:
         db.rollback()
@@ -139,7 +143,8 @@ def login(username, pasword):
         db.close()
 
 
-# TO DO: TESTING
+
+# TESTING
 if __name__ == "__main__":
     db = LocalSession()
     existing_admin = db.query(User).filter(User.username == "Admin").first()
