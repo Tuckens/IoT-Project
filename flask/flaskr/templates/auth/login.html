@@ -122,7 +122,7 @@
         </form>
 
         <div class="extra-links">
-            &nbsp; <a href="{{ url_for('auth.register')}}">Create an Account</a>
+            &nbsp; <a href="{{ url_for('auth.api_register')}}">Create an Account</a>
         </div>
     </div>
     <script>
@@ -148,6 +148,9 @@
             console.log("Received response:", result);
             if (response.ok) {
                 alert("Succes : " + result.message);
+                setTimeout(function() {
+                    window.location.href = "/index.html";
+                }, 1500);
 
             }
             else {
