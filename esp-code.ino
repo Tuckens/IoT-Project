@@ -1,9 +1,10 @@
 #include  <Adafruit_BMP280.h>
+#include <Arduino_JSON.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
 #define DEBUG_MODE    //Comment out to supress debug info in Serial
-#define NOWIFI        //Comment out when using RaspberryPI
+//#define NOWIFI        //Comment out when using RaspberryPI
 
 #define LED 2         //Status LED ->built-in
 #define ERR 14        //Error LED -> D5
@@ -18,8 +19,7 @@ const char* target_ip="10.92.161.212:8000";
 String serverName;
 char buff[64]="";
 
-
-
+JSONVar json;
 
 
 
@@ -34,7 +34,7 @@ void setup()
 /*---------------------------WIFI SETUP---------------------------*/
 #ifdef DEBUG_MODE
   WiFi.begin(ssid, password);
-  delay(50);
+  delay(1000);
   Serial.print("Connecting to ");
   Serial.print(ssid);
 #endif
@@ -73,7 +73,7 @@ void setup()
 
 
 
-unsigned int count=0;
+unsigned int count=0;   //mssg ID
 
 void loop()
 {
@@ -85,9 +85,10 @@ void loop()
   Serial.println(digitalRead(PIR));
 
 #endif
-  WiFiClient wifi;
 
+#ifndef NOWIFI
 /*---------------------------HTTP CONNECTION---------------------------*/
+  WiFiClient wifi;
   HTTPClient http;
   snprintf(buff,sizeof(buff),"http://%s",target_ip);
   String path2server=String(buff);
@@ -100,30 +101,33 @@ void loop()
   http.begin(wifi,path2server);
   http.addHeader("Content-type","application/json");
 
-  
-  #ifdef DEBUG_MODE
-  Serial.println("Connected to HTTP server");
-  #endif
-
-  snprintf(buff,sizeof(buff),"t=%.2f&pir=%d&count=%d",bmp.readTemperature(),digitalRead(PIR),count);
-  strcat(buff,"&admin");
-  String post_req=String(buff);
-  Serial.println(post_req);
-
-  http.GET();
-  int httpResponseCode = http.POST(post_req);
+#endif
 
 
-  if(httpResponseCode<0)
-    http.end();
 
+json["temp"]=bmp.readTemperature();
+json["pir"]=digitalRead(PIR);
+json["pass"]="REDACTED-TOKEN";
+json["id"]=count;
+json["user"]="admin";
+
+
+#ifndef NOWIFI
+  int httpResponseCode = http.POST(JSON.stringify(json));
+    Serial.println(JSON.stringify(json));
+
+  Serial.print("POST: ");
+  Serial.println(httpResponseCode);
+
+  http.end();
+#endif
 /*-----------------------END OF HTTP CONNECTION------------------------*/
 
 
   count++;
 
   digitalWrite(LED,HIGH);
-  delay(400);
+  delay(500);
   digitalWrite(LED,LOW);
 
 
