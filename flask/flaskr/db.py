@@ -152,7 +152,8 @@ def log_sensor_data(event_type, description, val):
     except Exception as e:
         db.rollback()
         return {"success": False, "error": "not uploaded", "status": 400}
-
+    finally:
+        db.close()
 
 # TESTING
 if __name__ == "__main__":
