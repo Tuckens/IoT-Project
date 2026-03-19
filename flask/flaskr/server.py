@@ -24,7 +24,7 @@ init_db()
 @app.route('/', methods=['GET', 'POST'])
 def home():
     if request.method == 'POST':
-        data = request.get_json()
+        data = request.get_json(force=True)
         
         if data and data.get('token') == 'REDACTED-TOKEN':
             conn = sqlite3.connect('iot_demo.db')
