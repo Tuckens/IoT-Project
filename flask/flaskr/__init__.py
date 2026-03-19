@@ -10,4 +10,9 @@ def create_app():
     from . import auth
     app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
 
+    @app.route('/')
+    def accueil():
+        # Redirige automatiquement vers l'URL d'inscription
+        return redirect('/api/auth/register')
+
     return app
