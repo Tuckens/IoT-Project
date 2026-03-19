@@ -1,10 +1,9 @@
-from .db import create_user, login
+from .db import create_user, login, delete_user
 from flask import Blueprint, render_template
 from flask import request, jsonify
 
 
 auth_bp = Blueprint('auth', __name__)
-
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])
@@ -25,9 +24,9 @@ def register():
         return jsonify({"error": result["error"]}), result["status"]
 
 
-@auth_bp.route('/login', methods=['POST','GET'])
+@auth_bp.route('/login', methods=['POST', 'GET'])
 def api_login():
-    if request.method=='GET':
+    if request.method == 'GET':
         return render_template('auth/login.html')
     data = request.get_json()
 
@@ -36,6 +35,24 @@ def api_login():
 
     result = login(username, password)
 
+    if result["success"]:
+
+        return jsonify({"message": result["message"]}), result["status"]
+    else:
+
+        return jsonify({"error": result["error"]}), result["status"]
+
+
+@auth_bp.route('/delete', methods=['POST', 'GET'])
+def api_delete():
+    if request.method == 'GET':
+        return render_template('auth/delete.html')
+    data = request.get_json()
+
+    target_username = data.get("target_user")
+    requester_username = data.get("requester_user")
+
+    result = delete_user(target_username, requester_username)
     if result["success"]:
 
         return jsonify({"message": result["message"]}), result["status"]

@@ -142,10 +142,12 @@ def login(username, pasword):
     finally:
         db.close()
 
+
 def log_sensor_data(event_type, description, val):
     db = LocalSession()
     try:
-        new_log = EventLogs(eventtype = event_type, description = description, value = val)
+        new_log = EventLogs(eventtype=event_type,
+                            description=description, value=val)
         db.add(new_log)
         db.commit()
         return {"success": True, "message": "log uploaded", "status": 200}
@@ -155,13 +157,12 @@ def log_sensor_data(event_type, description, val):
     finally:
         db.close()
 
+
 # TESTING
 if __name__ == "__main__":
     db = LocalSession()
-    existing_admin = db.query(User).filter(User.username == "Admin").first()
-    if not existing_admin:
-        Admin = User(username="Admin", password_hash=generate_password_hash(
-            "Admin"), permissions="Admin")
-        db.add(Admin)
-        db.commit()
+    Admin = User(username="admin", password_hash=generate_password_hash(
+        "admin"), permissions="Admin")
+    db.add(Admin)
+    db.commit()
     db.close()
