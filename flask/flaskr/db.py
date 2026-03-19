@@ -142,6 +142,16 @@ def login(username, pasword):
     finally:
         db.close()
 
+def log_sensor_data(event_type, description, val):
+    db = LocalSession()
+    try:
+        new_log = EventLogs(eventtype = event_type, description = description, value = val)
+        db.add(new_log)
+        db.commit()
+        return {"success": True, "message": "log uploaded", "status": 200}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": "not uploaded", "status": 400}
 
 
 # TESTING
