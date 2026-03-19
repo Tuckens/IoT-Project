@@ -9,7 +9,8 @@ import os
 from sqlalchemy import desc
 
 
-db_URL = "sqlite:///iot_demo.db"
+_DB_DIR = os.path.dirname(os.path.abspath(__file__))
+db_URL = f"sqlite:///{os.path.join(_DB_DIR, 'iot_demo.db')}"
 
 engine = create_engine(db_URL)
 
