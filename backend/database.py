@@ -44,18 +44,18 @@ def create_user(username, password):
         existing_user = db.query(User).filter_by(username=username).first()
         if existing_user:
             print(f"User '{username}' already exists")
-            return
+            return {"success": False, "error": "User already exists", "status": 409}
 
         hashed_password = generate_password_hash(password)
         new_user = User(username=username, password_hash=hashed_password)
 
         db.add(new_user)
         db.commit()
-        print("User created")
+        return {"success": True, "message": "User created successfully", "stauts": 201}
 
     except Exception as e:
         db.rollback()
-        print("Error:", e)
+        return {"success": False, "error": str(e), "status": 500}
 
     finally:
         db.close()
@@ -68,21 +68,21 @@ def delete_user(target_username, requester_username):
         target_user = db.query(User).filter(
             User.username == target_username).first()
         if not target_user:
-            print("The user doesn't exists")
+            return {"success": False, "error": "The user doesn't exists", "status": 404}
 
         requester = db.query(User).filter(
             User.username == requester_username).first()
         if not requester:
-            print("Requester doesn't exists")
+            return {"success": False, "error": "Wrong requester", "status": 422}
 
         elif "Admin" not in requester.permissions:
-            print("No admin permissions")
+            return {"success": False, "error": "No admin permissions", "status": 403}
 
         else:
 
             db.delete(target_user)
             db.commit()
-            print("Deleted")
+            return {"success": True, "message": f"You deleted {target_user}", "status": 201}
 
     except Exception as e:
         db.rollback()
@@ -101,17 +101,18 @@ def promote_to_admin(target_username, requester_username):
         requester = db.query(User).filter(
             User.username == requester_username).first()
         if not target_user:
-            print("User doesn't exist")
+            return {"success": False, "error": "No user found", "status": 404}
 
         elif not requester:
-            print("Requester doesn't exists")
+            return {"success": False, "error": "Nice try", "status": 400}
         else:
 
             target_user.permissions = "Admin"
             db.commit()
+            return {"success": True, "message": f"{target_username} got promoted to an admin", "status": 200}
     except Exception as e:
         db.rollback()
-        return f"Error: {str(e)}"
+        return {"success": False, "Error": {str(e)}, "status": 400}
     finally:
         db.close()
 
@@ -124,12 +125,12 @@ def login(username, pasword):
     try:
         user = db.query(User).filter(User.username == username).first()
         if not user:
-            print("User not found")
+            return {"success": False, "error": "User not found", "status": 404}
 
         elif (check_password_hash(user.password_hash, pasword)):
-            print("Acess granted!")   # ACCESS ENDPOINT
+            return {"success": True, "message": "Welcome", "status": 200}
         else:
-            print("Incorret password!")
+            return {"success": False, "error": "Wrong password", "status": 400}
 
     except Exception as e:
         db.rollback()
@@ -148,10 +149,6 @@ if __name__ == "__main__":
         db.add(Admin)
         db.commit()
     db.close()
-    create_user("user", "user")
+ 
 
-    login("user", "user")
-    delete_user("user", "Admin")
-    login("user", "user")
 
-    
