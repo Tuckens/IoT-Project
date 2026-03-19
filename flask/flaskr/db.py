@@ -5,7 +5,7 @@ from sqlalchemy.orm import DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import DateTime
 from sqlalchemy.sql import func
-
+import os
 
 db_URL = "sqlite:///iot_demo.db"
 
@@ -37,9 +37,13 @@ class EventLogs(Base):
     timestamp = Column(DateTime, server_default=func.now())
 
 
+
+
+
+
+
 Base.metadata.create_all(engine)
 # CRUD LOGIC
-
 
 def create_user(username, password):
     db = LocalSession()
@@ -132,7 +136,9 @@ def login(username, pasword):
             return {"success": False, "error": "User not found", "status": 404}
 
         elif (check_password_hash(user.password_hash, pasword)):
+            print("logged")
             return {"success": True, "message": "Welcome", "status": 200}
+            
         else:
             return {"success": False, "error": "Wrong password", "status": 400}
 
@@ -155,13 +161,29 @@ def log_sensor_data(event_type, description, val):
     finally:
         db.close()
 
+def record_camera_event(filename):
+    db = LocalSession()
+    try:
+        file_path = os.path.join("static/recordings", filename)
+        new_recording = EventLogs(eventtype = "Recording", description = filename, value=os.path.getsize(f"/home/pi/flaskr/{file_path}"))
+
+        db.add(new_recording)
+        db.commit()
+        return {"success": True, "message": "Recording saved", "status": 200}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": "Exception", "status": 400}
+    finally:
+        db.close()
+
+
 # TESTING
 if __name__ == "__main__":
     db = LocalSession()
     existing_admin = db.query(User).filter(User.username == "Admin").first()
     if not existing_admin:
-        Admin = User(username="Admin", password_hash=generate_password_hash(
-            "Admin"), permissions="Admin")
+        Admin = User(username="Admin", password_hash=generate_password_hash("Admin"), permissions="Admin")
         db.add(Admin)
         db.commit()
     db.close()
+
