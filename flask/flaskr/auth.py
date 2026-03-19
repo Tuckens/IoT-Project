@@ -1,4 +1,4 @@
-from .db import create_user, login, delete_user
+from db import create_user, login, delete_user
 from flask import Blueprint, render_template
 from flask import request, jsonify
 
