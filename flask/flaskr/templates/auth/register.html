@@ -145,7 +145,7 @@
 <body>
 
     <div class="register-container">
-        <h2>Créer un Compte</h2>
+        <h2>Create an account</h2>
 
         <form id="userForm" action="#" method="POST">
 
@@ -161,22 +161,21 @@
                 <input type="password" id="password" name="password" required placeholder="Créez un mot de passe fort">
             </div>
 
-
-            <button type="submit" class="register-btn">S'Inscrire</button>
-
+            <input type="submit" id="submit_register" value="Send Message">
         </form>
 
         <div class="extra-links">
-            <p>Déjà inscrit ? <a href="{{ url_for('auth.login') }}">Connectez-vous ici</a></p>
+            <p>Already sign in ? <a href="#">Sign in here</a></p>
         </div>
     </div>
 
 </body>
 
 <script>
-
     document.getElementById('userForm').addEventListener('submit', async (e) => {
+
         e.preventDefault();
+
 
         const userData = {
             username: document.getElementById('username').value,
