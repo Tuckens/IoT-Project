@@ -102,8 +102,7 @@ void loop()
 #ifndef NOWIFI
   char buff[128]="";
 
-  memcpy(buff,"http://",strlen("http://"));
-  strcat(buff,serverIP.toString().c_str());
+  snprintf(buff, sizeof(buff), "http://%s/api/blog/sensor", serverIP.toString().c_str());
   
   #ifdef DEBUG_MODE
   Serial.print("Connecting to ");
