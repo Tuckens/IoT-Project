@@ -5,6 +5,7 @@ from sqlalchemy.orm import DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import DateTime
 from sqlalchemy.sql import func
+from datetime import datetime
 import os
 from sqlalchemy import desc
 
@@ -38,7 +39,7 @@ class EventLogs(Base):
     eventtype = Column(String)
     description = Column(String)
     value = Column(Float)
-    timestamp = Column(DateTime, server_default=func.now())
+    timestamp = Column(DateTime, default=datetime.now)
 
 
 Base.metadata.create_all(engine)
