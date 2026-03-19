@@ -13,6 +13,6 @@ def create_app():
     @app.route('/')
     def accueil():
         # Redirige automatiquement vers l'URL d'inscription
-        return redirect('/api/auth/register')
+        return redirect('/api/auth/login')
 
     return app
