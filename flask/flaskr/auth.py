@@ -1,14 +1,10 @@
-from .db import create_user
+from .db import create_user, login
 from flask import Blueprint, render_template
 from flask import request, jsonify
 
 
 auth_bp = Blueprint('auth', __name__)
 
-
-@auth_bp.route('/login', methods=['GET', 'POST'])
-def login():
-    return render_template('auth/login.html')
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])
@@ -29,8 +25,10 @@ def register():
         return jsonify({"error": result["error"]}), result["status"]
 
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login', methods=['POST','GET'])
 def api_login():
+    if request.method=='GET':
+        return render_template('auth/login.html')
     data = request.get_json()
 
     username = data.get('username')

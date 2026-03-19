@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,7 +22,7 @@
             background-color: #ffffff;
             padding: 40px;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 350px;
         }
@@ -51,7 +52,8 @@
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            box-sizing: border-box; /* Ensures padding doesn't widen the input */
+            box-sizing: border-box;
+            /* Ensures padding doesn't widen the input */
             font-size: 16px;
         }
 
@@ -97,31 +99,63 @@
         }
     </style>
 </head>
+
 <body>
 
     <div class="login-container">
         <h2>Welcome Back</h2>
-        
-        <form action="#" method="POST">
-            
+
+        <form id="userForm" action="#" method="POST">
+
             <div class="input-group">
                 <label for="username">Username or Email</label>
                 <input type="text" id="username" name="username" required placeholder="Enter your username">
             </div>
-            
+
             <div class="input-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" required placeholder="Enter your password">
             </div>
-            
+
             <button type="submit" class="login-btn">Log In</button>
-            
+
         </form>
-        
+
         <div class="extra-links">
             &nbsp; <a href="{{ url_for('auth.register')}}">Create an Account</a>
         </div>
     </div>
+    <script>
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
 
+            e.preventDefault();
+
+
+            const userData = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            }
+
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            })
+
+            const result = await response.json();
+            console.log("Received response:", result);
+            if (response.ok) {
+                alert("Succes : " + result.message);
+
+            }
+            else {
+                alert("Error : " + result.message);
+            }
+        })
+
+    </script>
 </body>
+
 </html>
