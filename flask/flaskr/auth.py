@@ -15,7 +15,7 @@ def login():
 def render_register_page():
     return render_template('auth/register.html')
 
-@auth_bp.route('/register',method=['POST'])
+@auth_bp.route('/register',methods=['POST'])
 def api_register():
     data = request.get_json()
     
