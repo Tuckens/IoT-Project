@@ -4,8 +4,9 @@ from flask import Flask, redirect, url_for, render_template
 def create_app():
     app = Flask(__name__)
 
-    # Add a config.py which define DataBase Url
-    # app.config.from_pyfile('../config.py')
+    # Load configuration
+    from .config import Config
+    app.config.from_object(Config)
 
     from . import auth
     from . import sensor_data
