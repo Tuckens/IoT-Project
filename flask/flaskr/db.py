@@ -6,6 +6,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import DateTime
 from sqlalchemy.sql import func
 import os
+from sqlalchemy import desc
+
 
 db_URL = "sqlite:///iot_demo.db"
 
@@ -30,7 +32,8 @@ class User(Base):
 
 class EventLogs(Base):
     __tablename__ = "logs"
-    device_id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_id = Column(Integer) 
     eventtype = Column(String)
     description = Column(String)
     value = Column(Integer)
@@ -94,7 +97,7 @@ def delete_user(target_username, requester_username):
 
     except Exception as e:
         db.rollback()
-        return f"Error: {str(e)}"
+        return {"success": False, "error": str(e), "status": 400}
 
     finally:
         db.close()
@@ -148,10 +151,10 @@ def login(username, pasword):
     finally:
         db.close()
 
-def log_sensor_data(event_type, description, val):
+def log_sensor_data(device_id, event_type, description, val):
     db = LocalSession()
     try:
-        new_log = EventLogs(eventtype = event_type, description = description, value = val)
+        new_log = EventLogs(device = device_id, eventtype = event_type, description = description, value = val)
         db.add(new_log)
         db.commit()
         return {"success": True, "message": "log uploaded", "status": 200}
@@ -160,6 +163,7 @@ def log_sensor_data(event_type, description, val):
         return {"success": False, "error": "not uploaded", "status": 400}
     finally:
         db.close()
+
 
 def record_camera_event(filename):
     db = LocalSession()
@@ -176,7 +180,7 @@ def record_camera_event(filename):
     finally:
         db.close()
 
-from sqlalchemy import desc
+
 
 def get_recent_readings(limit=20):
     db = LocalSession()
