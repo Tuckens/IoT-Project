@@ -1,7 +1,7 @@
 #include  <Adafruit_BMP280.h>
-#include <Arduino_JSON.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include "creds.h"
 
 #define DEBUG_MODE    //Comment out to supress debug info in Serial
 //#define NOWIFI        //Comment out when using RaspberryPI
@@ -13,14 +13,9 @@
 
 
 Adafruit_BMP280 bmp;
-const char* ssid = "Antenne";
-const char* password = "REDACTED";
+
 const char* target_ip="10.92.161.212:8000";
 String serverName;
-char buff[64]="";
-
-JSONVar json;
-
 
 
 
@@ -32,9 +27,10 @@ void setup()
   pinMode(PIR,INPUT);
 
 /*---------------------------WIFI SETUP---------------------------*/
-#ifdef DEBUG_MODE
   WiFi.begin(ssid, password);
   delay(1000);
+
+#ifdef DEBUG_MODE
   Serial.print("Connecting to ");
   Serial.print(ssid);
 #endif
@@ -58,7 +54,7 @@ void setup()
 
     bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,       // Operating Mode
                     Adafruit_BMP280::SAMPLING_X2,       // Temp. oversampling
-                    Adafruit_BMP280::SAMPLING_X16,      // Pressure oversampling
+                    Adafruit_BMP280::SAMPLING_NONE,     // Pressure oversampling
                     Adafruit_BMP280::FILTER_X16,        // Filtering
                     Adafruit_BMP280::STANDBY_MS_500);   // Standby time
   }
@@ -74,48 +70,41 @@ void setup()
 
 
 unsigned int count=0;   //mssg ID
+char buff[128]="";
+
+WiFiClient wifi;
+HTTPClient http;
 
 void loop()
 {
-
 #ifdef DEBUG_MODE
   Serial.print("Temperature: ");
   Serial.print(bmp.readTemperature());
   Serial.print(" Motion: ");
   Serial.println(digitalRead(PIR));
-
 #endif
 
-#ifndef NOWIFI
 /*---------------------------HTTP CONNECTION---------------------------*/
-  WiFiClient wifi;
-  HTTPClient http;
+#ifndef NOWIFI
   snprintf(buff,sizeof(buff),"http://%s",target_ip);
   String path2server=String(buff);
   
   #ifdef DEBUG_MODE
   Serial.print("Connecting to ");
-  Serial.println(path2server);
+  Serial.println(buff);
   #endif
   
-  http.begin(wifi,path2server);
+  http.begin(wifi,buff);
   http.addHeader("Content-type","application/json");
-
+#endif
+snprintf(buff,sizeof(buff),"{\"id\":%d,\"temp\":%.2f,\"pir\":%d,\"user\":\"admin\",\"pass\":\"REDACTED-TOKEN\"}",
+                              count,bmp.readTemperature(),digitalRead(PIR));
+#ifdef DEBUG_MODE
+Serial.println(buff);
 #endif
 
-
-
-json["temp"]=bmp.readTemperature();
-json["pir"]=digitalRead(PIR);
-json["pass"]="REDACTED-TOKEN";
-json["id"]=count;
-json["user"]="admin";
-
-
 #ifndef NOWIFI
-  int httpResponseCode = http.POST(JSON.stringify(json));
-    Serial.println(JSON.stringify(json));
-
+  int httpResponseCode = http.POST((const uint8_t*)buff,strlen(buff));
   Serial.print("POST: ");
   Serial.println(httpResponseCode);
 
@@ -127,8 +116,7 @@ json["user"]="admin";
   count++;
 
   digitalWrite(LED,HIGH);
-  delay(500);
+  delay(250);
   digitalWrite(LED,LOW);
-
 
 }
