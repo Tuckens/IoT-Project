@@ -4,23 +4,6 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-def init_db():
-    conn = sqlite3.connect('iot_demo.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS sensor_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message_id INTEGER,
-            temperature REAL,
-            motion INTEGER,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
 @app.route('/', methods=['GET', 'POST'])
 def home():
     if request.method == 'POST':
@@ -30,7 +13,7 @@ def home():
             conn = sqlite3.connect('iot_demo.db')
             c = conn.cursor()
             c.execute('''
-                INSERT INTO sensor_data (message_id, temperature, motion)
+                INSERT INTO logs (message_id, temperature, motion)
                 VALUES (?, ?, ?)
             ''', (data.get('id'), data.get('temp'), data.get('pir')))
             conn.commit()
@@ -50,7 +33,7 @@ def home():
 def get_sensor_data():
     conn = sqlite3.connect('iot_demo.db')
     c = conn.cursor()
-    c.execute("SELECT timestamp, temperature, motion FROM sensor_data ORDER BY timestamp DESC LIMIT 15")
+    c.execute("SELECT timestamp, temperature, motion FROM logs ORDER BY timestamp DESC LIMIT 15")
     rows = c.fetchall()
     conn.close()
 
