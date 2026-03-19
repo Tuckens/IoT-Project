@@ -176,11 +176,28 @@ def record_camera_event(filename):
     finally:
         db.close()
 
-def get_sensor_summary():
-    db = LocalSession()
-    latest = db.query(EventLogs).order_by(desc(EventLogs.timestamp)).first()
+from sqlalchemy import desc
 
-    return {"current_temp": latest.value if latest else 0,"max_24h": 32, } #PLACEHOLDER
+def get_recent_readings(limit=20):
+    db = LocalSession()
+    try:
+        readings = db.query(EventLogs)\
+                     .order_by(desc(EventLogs.timestamp))\
+                     .limit(limit)\
+                     .all()
+
+        readings.reverse()
+        chart_data = {
+            "labels": [r.timestamp.strftime("%H:%M:%S") for r in readings],
+            "values": [r.value for r in readings],
+            "count": len(readings)
+        }
+        return chart_data
+    except Exception as e:
+        print(f"Chart Data Error: {e}")
+        return {"labels": [], "values": [], "error": str(e)}
+    finally:
+        db.close()
 
 # TESTING
 if __name__ == "__main__":
