@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, desc
 from sqlalchemy import Integer, String, Column
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import DeclarativeBase
@@ -176,6 +176,11 @@ def record_camera_event(filename):
     finally:
         db.close()
 
+def get_sensor_summary():
+    db = LocalSession()
+    latest = db.query(EventLogs).order_by(desc(EventLogs.timestamp)).first()
+
+    return {"current_temp": latest.value if latest else 0,"max_24h": 32, } #PLACEHOLDER
 
 # TESTING
 if __name__ == "__main__":
