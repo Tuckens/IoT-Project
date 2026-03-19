@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template
 from flask import request,jsonify
-from backend.database import create_user
+from backend.database import create_user,login  
 
 
 auth_bp = Blueprint('auth', __name__)
@@ -33,6 +33,21 @@ def api_register():
     
     
 
+@auth_bp.route('/login',methods=['POST'])
+def api_login():
+    data = request.get_json()
+    
+    username = data.get('username')
+    password = data.get('password')
+    
+    result = login(username,password)
+    
+    if result["success"]:
 
+        return jsonify({"message": result["message"]}), result["status"]
+    else:
+    
+        return jsonify({"error": result["error"]}), result["status"]
+    
 
 
