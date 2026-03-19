@@ -132,8 +132,6 @@ def login(username, pasword):
         db.close()
 
         
-
-
 # TO DO: TESTING
 if __name__ == "__main__":
     db = LocalSession()
