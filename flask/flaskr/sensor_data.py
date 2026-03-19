@@ -22,33 +22,39 @@ def get_config():
 
 @sensor_bp.route('/sensor_data', methods=['GET'])
 def get_sensor_data():
-    """Return the last 10 seconds of temperature and motion data as JSON."""
+    """Return recent temperature and motion data as JSON.
+
+    Query params:
+        limit (int): max number of points per sensor (default: SENSOR_WINDOW_SECONDS from config)
+    """
+    window = current_app.config.get('SENSOR_WINDOW_SECONDS', 60)
+    try:
+        limit = int(request.args.get('limit', window))
+    except (ValueError, TypeError):
+        limit = window
+
     if current_app.config.get('MOCK_SENSORS'):
-        # Generate random mock data
         now = datetime.now()
         temperature_data = []
         motion_data = []
-        for i in range(10):
-            ts = (now - timedelta(seconds=10-i)).strftime("%H:%M:%S")
+        for i in range(limit):
+            ts = (now - timedelta(seconds=limit - i)).strftime("%H:%M:%S")
             temperature_data.append(
                 {"timestamp": ts, "value": round(random.uniform(20.0, 25.0), 1)})
             motion_data.append(
                 {"timestamp": ts, "value": random.choice([0, 1])})
-
-        return jsonify({
-            "temperature": temperature_data,
-            "motion": motion_data
-        })
+        return jsonify({"temperature": temperature_data, "motion": motion_data})
 
     db = LocalSession()
     try:
-        cutoff = datetime.now() - timedelta(seconds=10)
+        cutoff = datetime.now() - timedelta(seconds=window)
 
         temp_logs = (
             db.query(EventLogs)
             .filter(EventLogs.eventtype == "temperature")
             .filter(EventLogs.timestamp >= cutoff)
             .order_by(EventLogs.timestamp.asc())
+            .limit(limit)
             .all()
         )
 
@@ -57,6 +63,7 @@ def get_sensor_data():
             .filter(EventLogs.eventtype == "motion")
             .filter(EventLogs.timestamp >= cutoff)
             .order_by(EventLogs.timestamp.asc())
+            .limit(limit)
             .all()
         )
 
@@ -76,11 +83,41 @@ def get_sensor_data():
             for log in motion_logs
         ]
 
+        return jsonify({"temperature": temperature_data, "motion": motion_data})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@sensor_bp.route('/latest', methods=['GET'])
+def get_latest():
+    """Return the single most recent temperature and motion reading."""
+    if current_app.config.get('MOCK_SENSORS'):
         return jsonify({
-            "temperature": temperature_data,
-            "motion": motion_data
+            "temperature": round(random.uniform(20.0, 25.0), 1),
+            "motion": random.choice([0, 1])
         })
 
+    db = LocalSession()
+    try:
+        last_temp = (
+            db.query(EventLogs)
+            .filter(EventLogs.eventtype == "temperature")
+            .order_by(EventLogs.timestamp.desc())
+            .first()
+        )
+        last_motion = (
+            db.query(EventLogs)
+            .filter(EventLogs.eventtype == "motion")
+            .order_by(EventLogs.timestamp.desc())
+            .first()
+        )
+        return jsonify({
+            "temperature": last_temp.value if last_temp else None,
+            "motion": int(last_motion.value) if last_motion else None
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
