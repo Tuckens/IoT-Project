@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, desc
-from sqlalchemy import Integer, String, Column
+from sqlalchemy import Integer, String, Column, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -36,13 +36,8 @@ class EventLogs(Base):
     device_id = Column(Integer) 
     eventtype = Column(String)
     description = Column(String)
-    value = Column(Integer)
+    value = Column(Float)
     timestamp = Column(DateTime, server_default=func.now())
-
-
-
-
-
 
 
 Base.metadata.create_all(engine)
@@ -151,10 +146,12 @@ def login(username, pasword):
     finally:
         db.close()
 
+
+#DATA
 def log_sensor_data(device_id, event_type, description, val):
     db = LocalSession()
     try:
-        new_log = EventLogs(device = device_id, eventtype = event_type, description = description, value = val)
+        new_log = EventLogs(device_id = device_id, eventtype = event_type, description = description, value = val)
         db.add(new_log)
         db.commit()
         return {"success": True, "message": "log uploaded", "status": 200}
@@ -163,7 +160,6 @@ def log_sensor_data(device_id, event_type, description, val):
         return {"success": False, "error": "not uploaded", "status": 400}
     finally:
         db.close()
-
 
 def record_camera_event(filename):
     db = LocalSession()
@@ -179,8 +175,6 @@ def record_camera_event(filename):
         return {"success": False, "error": "Exception", "status": 400}
     finally:
         db.close()
-
-
 
 def get_recent_readings(limit=20):
     db = LocalSession()
@@ -203,6 +197,23 @@ def get_recent_readings(limit=20):
     finally:
         db.close()
 
+def del_sensor_data(device_id, permissions):
+    db = LocalSession()
+    try:
+        del_log = db.query(EventLogs).filter(EventLogs.device_id == device_id)
+        if permissions != "Admin":
+            return {"success": False, "error": "no permissions", "status": 403}
+        else:
+            db.delete(del_log)
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e), "status": 400 }
+    finally:
+        db.close()
+
+
+
 # TESTING
 if __name__ == "__main__":
     db = LocalSession()
@@ -212,4 +223,7 @@ if __name__ == "__main__":
         db.add(Admin)
         db.commit()
     db.close()
+
+    for i in range(200):
+        log_sensor_data(1, "temperature", "normal", i)
 
