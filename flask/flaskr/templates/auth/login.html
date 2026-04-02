@@ -127,10 +127,7 @@
     </div>
     <script>
         document.getElementById('userForm').addEventListener('submit', async (e) => {
-
             e.preventDefault();
-
-
             const userData = {
                 username: document.getElementById('username').value,
                 password: document.getElementById('password').value
@@ -151,6 +148,7 @@
                 setTimeout(function() {
                     window.location.href = "/blog/";
                 }, 1500);
+                document.getElementById('userForm').reset();
 
             }
             else {
