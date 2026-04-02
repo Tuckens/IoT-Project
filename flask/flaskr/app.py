@@ -1,11 +1,15 @@
-from flask import Flask, redirect, url_for, render_template, request, jsonify
+from flask import Flask, redirect, url_for, render_template
+from config import Config
 from auth import auth_bp
 from blog import blog_bp
+from sensor_data import sensor_bp
+from camera import camera_bp
 import os
 import sqlite3
-
+from flask import request, jsonify
 
 app = Flask(__name__)
+app.config.from_object(Config)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'iot_demo.db')
@@ -33,6 +37,8 @@ def init_db():
 
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(blog_bp, url_prefix='/blog')
+app.register_blueprint(sensor_bp, url_prefix='/api/blog')
+app.register_blueprint(camera_bp, url_prefix='/api/camera')
 
 
 @app.route('/', methods=['GET', 'POST'])

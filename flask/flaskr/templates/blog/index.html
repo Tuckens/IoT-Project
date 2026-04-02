@@ -7,6 +7,8 @@
     <title>IoT Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
         * {
             margin: 0;
             padding: 0;
@@ -14,102 +16,144 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f1923;
-            color: #e0e6ed;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background-color: #0b1320;
+            color: #dde6f0;
             min-height: 100vh;
         }
 
         /* ── Top bar ── */
         .topbar {
-            background: linear-gradient(135deg, #1a2738 0%, #243447 100%);
-            padding: 16px 32px;
+            background: linear-gradient(135deg, #111e30 0%, #182840 100%);
+            padding: 14px 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(0, 123, 255, 0.25);
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+            border-bottom: 1px solid rgba(77, 163, 255, 0.18);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
 
         .topbar h1 {
-            font-size: 22px;
-            font-weight: 600;
+            font-size: 20px;
+            font-weight: 700;
             color: #fff;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
 
         .topbar h1 span {
             color: #4da3ff;
         }
 
-        .topbar .status-pill {
+        .topbar-right {
             display: flex;
             align-items: center;
-            gap: 8px;
-            background: rgba(0, 123, 255, 0.12);
-            padding: 6px 16px;
+            gap: 12px;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            padding: 5px 14px;
             border-radius: 20px;
-            font-size: 13px;
-            color: #8bb8e8;
+            font-size: 12px;
+            font-weight: 500;
+            color: #4ade80;
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             background-color: #22c55e;
             animation: pulse 2s ease-in-out infinite;
         }
 
+        .camera-pill {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(77, 163, 255, 0.1);
+            border: 1px solid rgba(77, 163, 255, 0.2);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #7bb8ff;
+        }
+
+        .camera-pill .cam-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: #4da3ff;
+        }
+
+        .camera-pill.offline {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        .camera-pill.offline .cam-dot {
+            background-color: #ef4444;
+        }
+
         @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.4;
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
         }
 
         /* ── Main layout ── */
         .dashboard {
             display: flex;
-            gap: 20px;
-            padding: 20px;
-            height: calc(100vh - 65px);
+            gap: 18px;
+            padding: 18px;
+            height: calc(100vh - 57px);
         }
 
         /* ── Left: video ── */
         .video-panel {
             flex: 55;
-            background: linear-gradient(145deg, #1a2738, #1e2d3d);
-            border-radius: 12px;
+            background: linear-gradient(145deg, #111e30, #152236);
+            border-radius: 14px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             border: 1px solid rgba(255, 255, 255, 0.06);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
         }
 
         .panel-header {
-            padding: 14px 20px;
-            font-size: 14px;
+            padding: 13px 18px;
+            font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #8bb8e8;
+            letter-spacing: 1.2px;
+            color: #7aa4c8;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-header-left {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .panel-header .icon {
-            width: 18px;
-            height: 18px;
-            opacity: 0.7;
+        .panel-icon {
+            font-size: 14px;
+            opacity: 0.75;
         }
 
         .video-container {
@@ -117,38 +161,86 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #0c1219;
+            background: #070d17;
             position: relative;
+            overflow: hidden;
         }
 
-        .video-container img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+        #cameraStream {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
-        .video-placeholder {
-            text-align: center;
-            color: #4a6a8a;
+        #localVideo {
+            display: none;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        .video-placeholder .camera-icon {
-            font-size: 48px;
-            margin-bottom: 12px;
-        }
-
-        .video-placeholder p {
+        /* reconnect overlay */
+        #cameraOverlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(7, 13, 23, 0.82);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #5a8ab0;
             font-size: 14px;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
         }
 
-        .video-placeholder code {
-            display: inline-block;
-            margin-top: 8px;
-            background: rgba(0, 123, 255, 0.1);
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #6aa3d4;
+        #cameraOverlay .overlay-icon {
+            font-size: 42px;
+            opacity: 0.5;
+        }
+
+        #cameraOverlay .overlay-sub {
+            font-size: 11px;
+            color: #3a6080;
+        }
+
+        .reconnect-bar {
+            width: 120px;
+            height: 3px;
+            background: rgba(77, 163, 255, 0.15);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .reconnect-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4da3ff, #22c55e);
+            border-radius: 2px;
+            animation: fillBar 3s linear forwards;
+        }
+
+        @keyframes fillBar {
+            to { width: 100%; }
+        }
+
+        /* mock indicator badge */
+        #mockIndicator {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(251, 146, 60, 0.85);
+            color: #1a0a00;
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            z-index: 10;
+            backdrop-filter: blur(4px);
         }
 
         /* ── Right: charts ── */
@@ -156,23 +248,51 @@
             flex: 45;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 18px;
         }
 
         .chart-card {
             flex: 1;
-            background: linear-gradient(145deg, #1a2738, #1e2d3d);
-            border-radius: 12px;
+            background: linear-gradient(145deg, #111e30, #152236);
+            border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.06);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
+        /* Current value badge in header */
+        .current-value-badge {
+            background: rgba(77, 163, 255, 0.1);
+            border: 1px solid rgba(77, 163, 255, 0.2);
+            border-radius: 8px;
+            padding: 3px 10px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0;
+            text-transform: none;
+            transition: all 0.3s ease;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .current-value-badge.motion-active {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.35);
+            color: #4ade80;
+        }
+
+        .current-value-badge.motion-clear {
+            background: rgba(100, 116, 139, 0.15);
+            border-color: rgba(100, 116, 139, 0.25);
+            color: #94a3b8;
+        }
+
         .chart-body {
             flex: 1;
-            padding: 12px 16px 16px;
+            padding: 10px 14px 14px;
             position: relative;
             min-height: 0;
         }
@@ -180,6 +300,25 @@
         .chart-body canvas {
             width: 100% !important;
             height: 100% !important;
+        }
+
+        /* no-data message */
+        .no-data-msg {
+            display: none;
+            position: absolute;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
+            color: #3a5570;
+            font-size: 13px;
+            font-weight: 500;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .no-data-msg .nd-icon {
+            font-size: 26px;
+            opacity: 0.4;
         }
 
         /* ── Responsive ── */
@@ -194,7 +333,7 @@
             }
 
             .chart-card {
-                min-height: 250px;
+                min-height: 240px;
             }
         }
     </style>
@@ -203,10 +342,18 @@
 <body>
 
     <div class="topbar">
-        <h1><span>IoT</span> Dashboard</h1>
-        <div class="status-pill">
-            <div class="status-dot"></div>
-            Live
+        <div class="topbar-left">
+            <h1><span>IoT</span> Dashboard</h1>
+        </div>
+        <div class="topbar-right">
+            <div class="camera-pill" id="cameraPill">
+                <div class="cam-dot"></div>
+                <span id="cameraPillText">Camera</span>
+            </div>
+            <div class="status-pill">
+                <div class="status-dot"></div>
+                Live
+            </div>
         </div>
     </div>
 
@@ -215,19 +362,28 @@
         <!-- LEFT: Video Feed -->
         <div class="video-panel">
             <div class="panel-header">
-                Live Camera Feed
+                <div class="panel-header-left">
+                    <span class="panel-icon">📷</span>
+                    Live Camera Feed
+                </div>
             </div>
             <div class="video-container" id="videoContainer">
-                <div id="mockIndicator"
-                    style="display:none; position:absolute; top:10px; right:10px; background:rgba(255,165,0,0.8); color:black; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold; z-index:10;">
-                    MOCK MODE</div>
+                <div id="mockIndicator">MOCK</div>
 
-                <video id="localVideo" autoplay playsinline
-                    style="display:none; width:100%; height:100%; object-fit: cover;"></video>
+                <!-- Pi camera MJPEG stream -->
+                <img id="cameraStream" src="/api/camera/stream" alt="Pi Camera Feed">
 
-                <div class="video-placeholder" id="videoPlaceholder">
-                    <p>No video stream connected</p>
-                    <code id="streamInfo">Stream URL still to set in index.html</code>
+                <!-- Fallback local webcam (mock mode only) -->
+                <video id="localVideo" autoplay playsinline></video>
+
+                <!-- Reconnect / offline overlay -->
+                <div id="cameraOverlay">
+                    <div class="overlay-icon">📡</div>
+                    <span id="overlayText">Reconnecting to camera…</span>
+                    <div class="reconnect-bar">
+                        <div class="reconnect-bar-fill" id="reconnectBarFill"></div>
+                    </div>
+                    <span class="overlay-sub" id="overlaySubText">Retrying in 3s</span>
                 </div>
             </div>
         </div>
@@ -238,20 +394,36 @@
             <!-- Temperature Chart -->
             <div class="chart-card">
                 <div class="panel-header">
-                    Temperature (last 10s)
+                    <div class="panel-header-left">
+                        <span class="panel-icon">🌡️</span>
+                        Temperature (last 60s)
+                    </div>
+                    <span class="current-value-badge" id="tempBadge">—</span>
                 </div>
                 <div class="chart-body">
                     <canvas id="tempChart"></canvas>
+                    <div class="no-data-msg" id="tempNoData">
+                        <span class="nd-icon">📭</span>
+                        Waiting for ESP data…
+                    </div>
                 </div>
             </div>
 
             <!-- Motion Chart -->
             <div class="chart-card">
                 <div class="panel-header">
-                    Motion Sensor (last 10s)
+                    <div class="panel-header-left">
+                        <span class="panel-icon">🚶</span>
+                        Motion Sensor (last 60s)
+                    </div>
+                    <span class="current-value-badge motion-clear" id="motionBadge">—</span>
                 </div>
                 <div class="chart-body">
                     <canvas id="motionChart"></canvas>
+                    <div class="no-data-msg" id="motionNoData">
+                        <span class="nd-icon">📭</span>
+                        Waiting for ESP data…
+                    </div>
                 </div>
             </div>
 
@@ -260,31 +432,23 @@
 
     <script>
 
-
-
-
-
-
-        
         /* ─── Chart configuration ─── */
 
         const chartDefaults = {
             responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 300 },
+            animation: { duration: 250 },
             scales: {
                 x: {
-                    ticks: { color: '#6b8aaa', font: { size: 11 } },
-                    grid: { color: 'rgba(255,255,255,0.04)' }
+                    ticks: { color: '#4a6a8a', font: { size: 10 }, maxTicksLimit: 8 },
+                    grid: { color: 'rgba(255,255,255,0.03)' }
                 },
                 y: {
-                    ticks: { color: '#6b8aaa', font: { size: 11 } },
-                    grid: { color: 'rgba(255,255,255,0.06)' }
+                    ticks: { color: '#4a6a8a', font: { size: 10 } },
+                    grid: { color: 'rgba(255,255,255,0.05)' }
                 }
             },
-            plugins: {
-                legend: { display: false }
-            }
+            plugins: { legend: { display: false } }
         };
 
         /* ── Temperature chart ── */
@@ -297,11 +461,11 @@
                     label: 'Temperature (°C)',
                     data: [],
                     borderColor: '#f97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                    backgroundColor: 'rgba(249, 115, 22, 0.12)',
                     borderWidth: 2,
-                    pointRadius: 3,
+                    pointRadius: 2,
                     pointBackgroundColor: '#f97316',
-                    tension: 0.3,
+                    tension: 0.4,
                     fill: true
                 }]
             },
@@ -311,7 +475,7 @@
                     ...chartDefaults.scales,
                     y: {
                         ...chartDefaults.scales.y,
-                        title: { display: true, text: '°C', color: '#6b8aaa' }
+                        title: { display: true, text: '°C', color: '#4a6a8a', font: { size: 11 } }
                     }
                 }
             }
@@ -327,9 +491,9 @@
                     label: 'Motion',
                     data: [],
                     borderColor: '#22c55e',
-                    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.12)',
                     borderWidth: 2,
-                    pointRadius: 3,
+                    pointRadius: 2,
                     pointBackgroundColor: '#22c55e',
                     stepped: true,
                     fill: true
@@ -346,36 +510,104 @@
                         ticks: {
                             ...chartDefaults.scales.y.ticks,
                             stepSize: 1,
-                            callback: function (value) {
-                                if (value === 0) return 'No motion';
-                                if (value === 1) return 'Motion';
-                                return '';
-                            }
+                            callback: v => v === 0 ? 'Clear' : v === 1 ? 'Motion' : ''
                         },
-                        title: { display: true, text: 'Status', color: '#6b8aaa' }
+                        title: { display: true, text: 'Status', color: '#4a6a8a', font: { size: 11 } }
                     }
                 }
             }
         });
 
+
+        /* ─── Camera: probe availability + reconnect logic ─── */
+
+        const camImg     = document.getElementById('cameraStream');
+        const camOverlay = document.getElementById('cameraOverlay');
+        const cameraPill = document.getElementById('cameraPill');
+        const cameraPillText = document.getElementById('cameraPillText');
+        const overlayText    = document.getElementById('overlayText');
+        const overlaySubText = document.getElementById('overlaySubText');
+        let cameraOnline = true;
+        let reconnectTimer = null;
+
+        function showCameraOverlay(msgMain, msgSub) {
+            overlayText.textContent = msgMain;
+            overlaySubText.textContent = msgSub;
+            camOverlay.style.display = 'flex';
+            // Restart progress bar animation
+            const bar = document.getElementById('reconnectBarFill');
+            bar.style.animation = 'none';
+            void bar.offsetWidth; // reflow
+            bar.style.animation = 'fillBar 3s linear forwards';
+        }
+
+        function hideCameraOverlay() {
+            camOverlay.style.display = 'none';
+        }
+
+        function setCameraStatus(online) {
+            cameraOnline = online;
+            if (online) {
+                cameraPill.classList.remove('offline');
+                cameraPillText.textContent = 'Camera ✓';
+                hideCameraOverlay();
+            } else {
+                cameraPill.classList.add('offline');
+                cameraPillText.textContent = 'Camera ✗';
+            }
+        }
+
+        // Stream error handler — auto retry every 3 s
+        camImg.onerror = function () {
+            if (cameraOnline) {
+                setCameraStatus(false);
+                showCameraOverlay('Camera stream interrupted', 'Reconnecting…');
+            }
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => {
+                const url = '/api/camera/stream?' + Date.now(); // bust cache
+                camImg.src = url;
+            }, 3000);
+        };
+
+        camImg.onload = function () {
+            // onload fires when the MJPEG boundary starts arriving
+            if (!cameraOnline) {
+                setCameraStatus(true);
+            }
+        };
+
+        async function checkCameraStatus() {
+            try {
+                const r = await fetch('/api/camera/status');
+                const data = await r.json();
+                if (!data.available) {
+                    setCameraStatus(false);
+                    showCameraOverlay('Camera offline', 'Connect the Pi camera and restart the server');
+                    // Stop trying to stream
+                    camImg.src = '';
+                }
+            } catch (e) { /* ignore, stream will fail on its own */ }
+        }
+
         /* ─── Mock & Config logic ─── */
-        let mockMode = false;
 
         async function checkConfig() {
             try {
                 const response = await fetch('/api/blog/config');
                 const config = await response.json();
 
-                if (config.MOCK_SENSORS || config.MOCK_VIDEO) {
-                    document.getElementById('mockIndicator').style.display = 'block';
-                    mockMode = true;
-                }
-
                 if (config.MOCK_VIDEO) {
+                    document.getElementById('mockIndicator').style.display = 'block';
+                    camImg.style.display = 'none';
                     startWebcam();
                 } else {
-                    // To fill here with the actual video stream when no mock mode
-                    // e.g. document.getElementById('videoFeed').style.display = 'block';
+                    // Real camera: check availability then show stream
+                    await checkCameraStatus();
+                }
+
+                if (config.MOCK_SENSORS) {
+                    document.getElementById('mockIndicator').style.display = 'block';
                 }
             } catch (err) {
                 console.error('Failed to fetch config:', err);
@@ -384,56 +616,93 @@
 
         async function startWebcam() {
             const video = document.getElementById('localVideo');
-            const placeholder = document.getElementById('videoPlaceholder');
-            const streamInfo = document.getElementById('streamInfo');
-
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
                 video.style.display = 'block';
-                placeholder.style.display = 'none';
-                streamInfo.textContent = "Using local computer camera (Mock Mode)";
+                setCameraStatus(true);
             } catch (err) {
-                console.error("Error accessing webcam:", err);
-                placeholder.innerHTML = `<p style="color: #ff4d4d;">Webcam access denied</p><code style="background: rgba(255,0,0,0.1);">Enable camera permissions for mock mode</code>`;
+                console.error('Webcam access denied:', err);
+                setCameraStatus(false);
+                showCameraOverlay('Webcam access denied', 'Allow camera access in your browser');
             }
         }
 
-        /* ─── Polling logic ─── */
+
+        /* ─── Sensor data polling ─── */
 
         async function fetchSensorData() {
             try {
-                const response = await fetch('sensor_data');
+                const response = await fetch('/api/blog/sensor_data?limit=60');
                 if (!response.ok) {
                     console.error('Sensor API error:', response.status);
                     return;
                 }
-
                 const data = await response.json();
-                console.log('Sensor data:', data);
+
+                const tempData   = data.temperature || [];
+                const motionData = data.motion || [];
 
                 // Update temperature chart
-                tempChart.data.labels = data.temperature.map(d => d.timestamp);
-                tempChart.data.datasets[0].data = data.temperature.map(d => d.value);
+                tempChart.data.labels              = tempData.map(d => d.timestamp);
+                tempChart.data.datasets[0].data    = tempData.map(d => d.value);
                 tempChart.update();
 
                 // Update motion chart
-                motionChart.data.labels = data.motion.map(d => d.timestamp);
-                motionChart.data.datasets[0].data = data.motion.map(d => d.value);
+                motionChart.data.labels            = motionData.map(d => d.timestamp);
+                motionChart.data.datasets[0].data  = motionData.map(d => d.value);
                 motionChart.update();
+
+                // No-data messages
+                const tempNoData   = document.getElementById('tempNoData');
+                const motionNoData = document.getElementById('motionNoData');
+                tempNoData.style.display   = tempData.length === 0   ? 'flex' : 'none';
+                motionNoData.style.display = motionData.length === 0 ? 'flex' : 'none';
 
             } catch (err) {
                 console.error('Failed to fetch sensor data:', err);
             }
         }
 
-        // Poll every 1 second
+        async function fetchLatest() {
+            try {
+                const r    = await fetch('/api/blog/latest');
+                const data = await r.json();
+
+                // Temperature badge
+                const tempBadge = document.getElementById('tempBadge');
+                if (data.temperature !== null && data.temperature !== undefined) {
+                    tempBadge.textContent = data.temperature.toFixed(1) + ' °C';
+                } else {
+                    tempBadge.textContent = '—';
+                }
+
+                // Motion badge
+                const motionBadge = document.getElementById('motionBadge');
+                if (data.motion === 1) {
+                    motionBadge.textContent = '🚶 Detected';
+                    motionBadge.className = 'current-value-badge motion-active';
+                } else if (data.motion === 0) {
+                    motionBadge.textContent = '✓ Clear';
+                    motionBadge.className = 'current-value-badge motion-clear';
+                } else {
+                    motionBadge.textContent = '—';
+                    motionBadge.className = 'current-value-badge';
+                }
+            } catch (err) {
+                console.error('Failed to fetch latest:', err);
+            }
+        }
+
+        /* ─── Bootstrap ─── */
 
         checkConfig();
-        setInterval(fetchSensorData, 1000); // 2s is enough for mock/live feel
-
-        // Initial fetch
         fetchSensorData();
+        fetchLatest();
+
+        setInterval(fetchSensorData, 2000);
+        setInterval(fetchLatest, 2000);
+
     </script>
 
 </body>
