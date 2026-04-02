@@ -142,17 +142,18 @@
                 <input type="password" id="password" name="password" required placeholder="Créez un mot de passe fort">
             </div>
         
-            <input type="submit" id="submit_register" value="Send Message">
+            <input type="submit" id="submit_register" value="Register">
         </form>
         
         <div class="extra-links">
-            <p>Already sign in ? <a href="#">Sign in here</a></p>
+            <p>Already sign in ? <a href="/api/auth/login">Sign in here</a></p>
         </div>
     </div>
 
 </body>
 
 <script>    
+    
     document.getElementById('userForm').addEventListener('submit', async (e) => {
    
         e.preventDefault(); 
@@ -182,9 +183,10 @@
             setTimeout(function() {
               window.location.href =  "/api/auth/login";
             },500)
-            
+            document.getElementById('userForm').reset();
         } else {
             alert("Erreur ! " + (data.error || ""));
+            document.getElementById('userForm').reset();
         }
 
     });
