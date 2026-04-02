@@ -1,15 +1,17 @@
 from sqlalchemy import create_engine, desc
-from sqlalchemy import Integer, String, Column
+from sqlalchemy import Integer, Float, String, Column
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import DateTime
 from sqlalchemy.sql import func
+from datetime import datetime
 import os
 from sqlalchemy import desc
 
 
-db_URL = "sqlite:///iot_demo.db"
+_DB_DIR = os.path.dirname(os.path.abspath(__file__))
+db_URL = f"sqlite:///{os.path.join(_DB_DIR, 'iot_demo.db')}"
 
 engine = create_engine(db_URL)
 
@@ -36,8 +38,8 @@ class EventLogs(Base):
     device_id = Column(Integer)
     eventtype = Column(String)
     description = Column(String)
-    value = Column(Integer)
-    timestamp = Column(DateTime, server_default=func.now())
+    value = Column(Float)
+    timestamp = Column(DateTime, default=datetime.now)
 
 
 Base.metadata.create_all(engine)
@@ -148,17 +150,17 @@ def login(username, pasword):
         db.close()
 
 
-def log_sensor_data(device_id, event_type, description, val):
+def log_sensor_data(event_type, description, val):
     db = LocalSession()
     try:
-        new_log = EventLogs(device=device_id, eventtype=event_type,
+        new_log = EventLogs(eventtype=event_type,
                             description=description, value=val)
         db.add(new_log)
         db.commit()
         return {"success": True, "message": "log uploaded", "status": 200}
     except Exception as e:
         db.rollback()
-        return {"success": False, "error": "not uploaded", "status": 400}
+        return {"success": False, "error": str(e), "status": 400}
     finally:
         db.close()
 

@@ -179,6 +179,10 @@
 
         if (response.ok) {
             alert("Succès ! " + (data.message || ""));
+            setTimeout(function() {
+              window.location.href =  "/api/auth/login";
+            },500)
+            
         } else {
             alert("Erreur ! " + (data.error || ""));
         }

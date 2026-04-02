@@ -98,12 +98,10 @@ void loop()
   #endif
 /*-----------------------END OF mDNS RESOLUTION------------------------*/
 
-/*---------------------------HTTP CONNECTION---------------------------*/
 #ifndef NOWIFI
   char buff[128]="";
 
-  memcpy(buff,"http://",strlen("http://"));
-  strcat(buff,serverIP.toString().c_str());
+  snprintf(buff, sizeof(buff), "http://%s/api/blog/sensor", serverIP.toString().c_str());
   
   #ifdef DEBUG_MODE
   Serial.print("Connecting to ");
@@ -111,16 +109,17 @@ void loop()
   #endif
   
   http.begin(wifi,buff);
-  http.addHeader("Content-type","application/json");
-#endif
-snprintf(buff,sizeof(buff),"{\"id\":%d,\"temp\":%.2f,\"pir\":%d,\"user\":\"esp2866\",\"token\":\"secretpass\"}",
-                              count,bmp.readTemperature(),digitalRead(PIR));
-#ifdef DEBUG_MODE
-Serial.println(buff);
-#endif
-Serial.println(http.GET());
-#ifndef NOWIFI
-  int httpResponseCode = http.POST((const uint8_t*)buff,strlen(buff));
+  http.addHeader("Content-Type","application/json");
+
+  // Build JSON payload in a separate buffer so we don't overwrite the URL
+  char payload[128]="";
+  snprintf(payload,sizeof(payload),"{\"id\":%d,\"temp\":%.2f,\"pir\":%d,\"user\":\"esp2866\",\"token\":\"secretpass\"}",
+                                count,bmp.readTemperature(),digitalRead(PIR));
+  #ifdef DEBUG_MODE
+  Serial.println(payload);
+  #endif
+
+  int httpResponseCode = http.POST((const uint8_t*)payload,strlen(payload));
   Serial.print("POST: ");
   Serial.println(httpResponseCode);
 
