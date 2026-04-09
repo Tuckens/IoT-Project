@@ -138,7 +138,14 @@ def login(username, pasword):
 
         elif (check_password_hash(user.password_hash, pasword)):
             print("logged")
-            return {"success": True, "message": "Welcome", "status": 200}
+            return {
+                "success": True, 
+                "message": "Welcome", 
+                "status": 200,
+                "user_id": user.user_id,
+                "username": user.username,
+                "permissions": user.permissions
+            }
 
         else:
             return {"success": False, "error": "Wrong password", "status": 400}
