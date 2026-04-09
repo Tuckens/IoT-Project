@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background-color: #0b1320;
+            color: #dde6f0;
+            min-height: 100vh;
+        }
+
+        /* ── Top bar ── */
+        .topbar {
+            background: linear-gradient(135deg, #111e30 0%, #182840 100%);
+            padding: 14px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(77, 163, 255, 0.18);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .topbar h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.3px;
+        }
+
+        .topbar h1 span {
+            color: #4da3ff;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #4ade80;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: #22c55e;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+
+        /* ── Main layout ── */
+        .dashboard {
+            display: flex;
+            gap: 18px;
+            padding: 18px;
+            height: calc(100vh - 57px);
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* ── Panels ── */
+        .panel {
+            background: linear-gradient(145deg, #111e30, #152236);
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .users-panel {
+            flex: 50;
+        }
+
+        .logs-panel {
+            flex: 50;
+        }
+
+        .panel-header {
+            padding: 13px 18px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #7aa4c8;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-icon {
+            font-size: 14px;
+            opacity: 0.75;
+        }
+
+        .panel-body {
+            padding: 14px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* ── Tables ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+            color: #dde6f0;
+        }
+
+        th {
+            padding: 10px;
+            color: #7aa4c8;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            vertical-align: middle;
+        }
+
+        table tr:last-child td {
+            border-bottom: none;
+        }
+
+        table tr:hover td {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        /* ── Inputs & Buttons ── */
+        input[type="text"], input[type="password"], select {
+            background: rgba(7, 13, 23, 0.5);
+            border: 1px solid rgba(77, 163, 255, 0.2);
+            color: #dde6f0;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 13px;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus, select:focus {
+            outline: none;
+            border-color: #4da3ff;
+            box-shadow: 0 0 0 2px rgba(77, 163, 255, 0.2);
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4da3ff, #007bff);
+            border: none;
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #3a5570;
+            font-size: 13px;
+            padding: 20px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 1000px) {
+            .dashboard {
+                flex-direction: column;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar">
+        <div class="topbar-left">
+            <h1><span>Admin</span> Dashboard</h1>
+        </div>
+        <div class="topbar-right">
+            <div class="status-pill">
+                <div class="status-dot"></div>
+                Admin Live
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+
+        <!-- LEFT: Users Management -->
+        <div class="panel users-panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <span class="panel-icon">👥</span>
+                    Users Management
+                </div>
+            </div>
+            <div class="panel-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">ID</th>
+                            <th style="width: 25%;">Username</th>
+                            <th style="width: 25%;">New Password</th>
+                            <th style="width: 20%;">Permissions</th>
+                            <th style="width: 25%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <!-- User rows will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- RIGHT: System Logs -->
+        <div class="panel logs-panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <span class="panel-icon">📋</span>
+                    System Logs (last 100)
+                </div>
+            </div>
+            <div class="panel-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Value</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-table-body">
+                        <!-- Log rows will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Fetch and display users
+        async function loadUsers() {
+            try {
+                const response = await fetch('/admin/users');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('users-table-body');
+                tbody.innerHTML = '';
+
+                data.users.forEach(user => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${user.user_id}</td>
+                        <td>
+                            <input type="text" id="username-${user.user_id}" value="${user.username}" />
+                        </td>
+                        <td>
+                            <input type="password" id="password-${user.user_id}" placeholder="Leave blank to keep" />
+                        </td>
+                        <td>
+                            <select id="perm-${user.user_id}" class="select-permissions">
+                                <option value="user" ${user.permissions === 'user' ? 'selected' : ''}>User</option>
+                                <option value="Admin" ${user.permissions === 'Admin' ? 'selected' : ''}>Admin</option>
+                            </select>
+                        </td>
+                        <td>
+                            <button class="btn" onclick="updateUser(${user.user_id})">🛠️ Update</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        // Update full user (permissions, username, password)
+        async function updateUser(userId) {
+            const newUsername = document.getElementById(`username-${userId}`).value;
+            const newPassword = document.getElementById(`password-${userId}`).value;
+            const newPermissions = document.getElementById(`perm-${userId}`).value;
+
+            try {
+                const response = await fetch(`/admin/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        username: newUsername,
+                        password: newPassword, // it's sent empty if unchanged, the backend ignores it
+                        permissions: newPermissions
+                    })
+                });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('Success: ' + result.message);
+                    loadUsers(); // reload to refresh fields
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error updating user:', error);
+                alert('An error occurred.');
+            }
+        }
+
+        // Fetch and display logs
+        async function loadLogs() {
+            try {
+                const response = await fetch('/admin/logs');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('logs-table-body');
+                tbody.innerHTML = '';
+
+                if (data.logs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="no-data">No logs found</td></tr>`;
+                    return;
+                }
+
+                data.logs.forEach(log => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${log.id}</td>
+                        <td>${log.eventtype}</td>
+                        <td>${log.description || '-'}</td>
+                        <td>${log.value !== null ? log.value : '-'}</td>
+                        <td>${log.timestamp || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Error loading logs:', error);
+            }
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+            loadLogs();
+        });
+    </script>
+</body>
+
+</html>
