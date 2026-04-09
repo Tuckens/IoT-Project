@@ -2,8 +2,14 @@ from flask import Blueprint, render_template, request, jsonify
 from db import LocalSession, User, EventLogs
 from sqlalchemy import desc
 from werkzeug.security import generate_password_hash
+from decorators import admin_required
 
 admin_bp = Blueprint('admin', __name__)
+
+@admin_bp.before_request
+@admin_required
+def restrict_admin():
+    pass
 
 
 @admin_bp.route('/')

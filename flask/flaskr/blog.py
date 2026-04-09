@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, jsonify
 from db import log_sensor_data, record_camera_event, LocalSession, EventLogs
 from datetime import datetime, timedelta
 import random
+from decorators import login_required
 
 blog_bp = Blueprint('blog', __name__)
 
@@ -9,6 +10,7 @@ blog_bp = Blueprint('blog', __name__)
 
 
 @blog_bp.route('/')
+@login_required
 def index():
     # Flask cherchera dans templates/blog/index.html
     return render_template('blog/index.html')
@@ -18,6 +20,7 @@ blog_bp = Blueprint('blog', __name__)
 
 
 @blog_bp.route('/')
+@login_required
 def index():
     return render_template('blog/index.html')
 
