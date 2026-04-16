@@ -8,6 +8,8 @@ from admin import admin_bp
 import os
 import sqlite3
 from flask import request, jsonify
+from db import cleanup_old_logs
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -42,6 +44,9 @@ app.register_blueprint(sensor_bp, url_prefix='/api/blog')
 app.register_blueprint(camera_bp, url_prefix='/api/camera')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 
+scheduler = BackgroundScheduler()
+scheduler.add_job(cleanup_old_logs, 'interval', hours=1)
+scheduler.start()
 
 @app.route('/', methods=['GET', 'POST'])
 def home():

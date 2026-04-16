@@ -8,6 +8,7 @@ from sqlalchemy.sql import func
 from datetime import datetime
 import os
 from sqlalchemy import desc
+from datetime import datetime, timedelta
 
 
 _DB_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -45,6 +46,18 @@ class EventLogs(Base):
 Base.metadata.create_all(engine)
 # CRUD LOGIC
 
+def cleanup_old_logs(max_age_hours=24):
+    db = LocalSession()
+    try:
+        cutoff = datetime.now() - timedelta(hours=max_age_hours)
+        deleted = db.query(EventLogs).filter(EventLogs.timestamp < cutoff).delete()
+        db.commit()
+        print(f"Cleanup: deleted {deleted} old log(s)")
+    except Exception as e:
+        db.rollback()
+        print(f"Cleanup error: {e}")
+    finally:
+        db.close()
 
 def create_user(username, password):
     db = LocalSession()
