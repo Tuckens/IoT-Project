@@ -103,6 +103,58 @@ def _ensure_schema() -> None:
 _ensure_schema()
 
 
+def cleanup_old_recordings(max_age_days: int = 7, max_count: int = 100) -> None:
+    """Purge old recordings to keep SD-card usage bounded.
+
+    Called on a schedule (see app.py). Deletes rows older than
+    max_age_days, then trims to the max_count most recent rows. The
+    underlying .mp4 files are unlinked too; missing files are tolerated.
+
+    Important: stream/download endpoints that are holding an open file
+    descriptor during the delete continue working — on Linux the file
+    data stays reachable via the fd until it's closed.
+    """
+    db = LocalSession()
+    victims = []
+    try:
+        cutoff = datetime.now() - timedelta(days=max_age_days)
+
+        # Age-based sweep.
+        old_rows = db.query(Recording).filter(Recording.started_at < cutoff).all()
+        for r in old_rows:
+            victims.append(r)
+
+        # Count-based sweep — keep the newest max_count, drop the rest.
+        surplus = (
+            db.query(Recording)
+            .filter(~Recording.id.in_([r.id for r in old_rows]) if old_rows else True)
+            .order_by(desc(Recording.started_at))
+            .offset(max_count)
+            .all()
+        )
+        for r in surplus:
+            victims.append(r)
+
+        for r in victims:
+            if _valid_recording_filename(r.filename):
+                path = os.path.join(RECORDINGS_DIR, r.filename)
+                try:
+                    if os.path.exists(path):
+                        os.remove(path)
+                except OSError:
+                    logger.exception("cleanup: failed to rm %s", r.filename)
+            db.delete(r)
+
+        db.commit()
+        if victims:
+            logger.info("cleanup: deleted %d old recording(s)", len(victims))
+    except Exception:
+        db.rollback()
+        logger.exception("cleanup_old_recordings failed")
+    finally:
+        db.close()
+
+
 def cleanup_old_logs(max_age_hours: int = 24) -> None:
     db = LocalSession()
     try:

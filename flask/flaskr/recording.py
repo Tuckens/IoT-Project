@@ -20,9 +20,15 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import threading
 import time
 from datetime import datetime, timedelta
+
+# Refuse to start a new recording below this many free bytes on the
+# recordings volume — ffmpeg would otherwise produce a zero-byte file
+# and leave an orphan DB row.
+MIN_FREE_DISK_BYTES = 500 * 1024 * 1024  # 500 MB
 
 from db import (
     RECORDINGS_DIR,
@@ -104,6 +110,19 @@ class RecordingManager:
         now = datetime.now()
         filename = _filename(trigger, now)
         path = os.path.join(RECORDINGS_DIR, filename)
+
+        try:
+            free = shutil.disk_usage(RECORDINGS_DIR).free
+        except OSError:
+            logger.exception("disk_usage failed; skipping free-space guard")
+            free = None
+        if free is not None and free < MIN_FREE_DISK_BYTES:
+            logger.warning(
+                "refusing to start %s recording: only %d MB free (< %d MB)",
+                trigger, free // (1024 * 1024),
+                MIN_FREE_DISK_BYTES // (1024 * 1024),
+            )
+            return
 
         try:
             from camera import _get_camera

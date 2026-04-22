@@ -126,29 +126,6 @@ def get_latest():
         db.close()
 
 
-@sensor_bp.route('/sensor_data', methods=['POST'])
-@login_required
-def post_sensor_data():
-    # Protected — the unauthenticated ESP ingest is /sensor below. Without
-    # login_required here, anyone on the Wi-Fi could stuff arbitrary strings
-    # into the description column, which the admin panel later renders.
-    data = request.get_json(silent=True) or {}
-
-    event_type = data.get('event_type')
-    description = str(data.get('description', ''))[:200]
-    value = data.get('value')
-
-    if event_type is None or value is None:
-        return jsonify({"error": "event_type and value are required"}), 400
-    try:
-        value = float(value)
-    except (TypeError, ValueError):
-        return jsonify({"error": "value must be numeric"}), 400
-
-    result = log_sensor_data(event_type, description, value)
-    return jsonify(result), result.get("status", 200)
-
-
 @sensor_bp.route('/sensor', methods=['POST'])
 def receive_esp_data():
     """Endpoint de collecte pour l'ESP32.
@@ -216,13 +193,3 @@ def receive_esp_data():
     return jsonify({"success": False, "error": "Internal error"}), 500
 
 
-@sensor_bp.route('/record', methods=['POST'])
-@login_required
-def record():
-    data = request.get_json(silent=True) or {}
-    filename = data.get('filename')
-    if not filename or not isinstance(filename, str):
-        return jsonify({"error": "filename is required"}), 400
-
-    result = record_camera_event(filename)
-    return jsonify(result), result.get("status", 200)

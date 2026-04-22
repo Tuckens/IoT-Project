@@ -12,7 +12,7 @@ from blog import blog_bp
 from sensor_data import sensor_bp
 from camera import camera_bp
 from admin import admin_bp
-from db import cleanup_old_logs
+from db import cleanup_old_logs, cleanup_old_recordings
 
 
 csrf = CSRFProtect()
@@ -85,6 +85,7 @@ def create_app() -> Flask:
 
     scheduler = BackgroundScheduler(daemon=True)
     scheduler.add_job(cleanup_old_logs, 'interval', hours=1)
+    scheduler.add_job(cleanup_old_recordings, 'interval', hours=1)
     scheduler.start()
 
     return app
