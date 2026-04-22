@@ -39,7 +39,8 @@ def create_app() -> Flask:
         response.headers.setdefault(
             'Content-Security-Policy',
             "default-src 'self'; img-src 'self' data:; "
-            "style-src 'self' 'unsafe-inline'; script-src 'self'"
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'"
         )
         if app.config.get('SESSION_COOKIE_SECURE'):
             response.headers.setdefault(
