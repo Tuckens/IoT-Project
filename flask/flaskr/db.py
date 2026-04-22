@@ -86,6 +86,17 @@ def delete_user(target_username: str, requester_username: str) -> dict:
         if requester.permissions != 'Admin':
             return {"success": False, "error": "Admin permission required", "status": 403}
 
+        # Refuse to delete the last admin — it locks everyone out of the admin
+        # panel and forces a CLI recovery via db.py bootstrap-admin.
+        if target_user.permissions == 'Admin':
+            admin_count = db.query(User).filter(User.permissions == 'Admin').count()
+            if admin_count <= 1:
+                return {
+                    "success": False,
+                    "error": "Cannot delete the last remaining admin",
+                    "status": 400,
+                }
+
         deleted_name = target_user.username
         db.delete(target_user)
         db.commit()

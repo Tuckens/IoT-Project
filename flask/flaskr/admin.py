@@ -71,6 +71,13 @@ def update_user(user_id):
             # locking everyone out.
             if user.user_id == current_user_id and new_perm != 'Admin':
                 return jsonify({"error": "You cannot demote yourself"}), 400
+            # Prevent demoting the last remaining admin.
+            if user.permissions == 'Admin' and new_perm != 'Admin':
+                admin_count = db.query(User).filter(User.permissions == 'Admin').count()
+                if admin_count <= 1:
+                    return jsonify(
+                        {"error": "Cannot demote the last remaining admin"}
+                    ), 400
             user.permissions = new_perm
 
         if 'password' in data and data.get('password'):
