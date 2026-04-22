@@ -112,11 +112,6 @@
                 <input type="text" id="target_user" name="target_user" required placeholder="target_user">
             </div>
 
-            <div class="input-group">
-                <label for="request_user">Requester_user</label>
-                <input type="text" id="requester_user" name="request_user" required placeholder="requester">
-            </div>
-
             <button type="submit" class="login-btn">delete him</button>
 
         </form>
@@ -129,8 +124,7 @@
 
 
             const userData = {
-                target_user: document.getElementById('target_user').value,
-                requester_user: document.getElementById('requester_user').value
+                target_user: document.getElementById('target_user').value
             }
 
             const response = await fetch('/api/auth/delete', {
