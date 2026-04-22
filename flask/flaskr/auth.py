@@ -96,6 +96,26 @@ def api_delete():
     return jsonify({"error": result["error"]}), status
 
 
+@auth_bp.route('/me', methods=['GET'])
+def api_me():
+    """Return the current user's identity + role, or 401 if not logged in.
+
+    The dashboard uses this to decide whether to render the Admin link.
+    We read through admin_required's DB re-fetch indirectly by hitting the
+    session, which admin_required has already refreshed on any prior admin
+    request — fine here because a stale 'Admin' flag only hides the link,
+    it does not grant access.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"authenticated": False}), 401
+    return jsonify({
+        "authenticated": True,
+        "username": session.get('username'),
+        "is_admin": session.get('permissions') == 'Admin',
+    })
+
+
 @auth_bp.route('/logout', methods=['POST'])
 def api_logout():
     # POST only — a GET logout is trivially CSRFable via <img src=...>,

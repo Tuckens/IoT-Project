@@ -200,6 +200,15 @@ def receive_esp_data():
     result_temp = log_sensor_data("temperature", desc, temp)
     result_pir = log_sensor_data("motion", desc, float(pir))
 
+    # Trigger recordings. Wrapped in try/except so a recording hiccup never
+    # poisons the ingest path — data logging is the primary function.
+    try:
+        from recording import recording_manager
+        recording_manager.on_motion(pir == 1)
+        recording_manager.on_temperature(temp)
+    except Exception:
+        logger.exception("recording trigger failed")
+
     if result_temp["success"] and result_pir["success"]:
         return jsonify({"success": True, "message": "Data logged"}), 200
 

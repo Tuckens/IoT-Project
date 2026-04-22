@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 _DB_DIR = os.path.dirname(os.path.abspath(__file__))
 db_URL = f"sqlite:///{os.path.join(_DB_DIR, 'iot_demo.db')}"
 
+# Video recordings live outside flask/flaskr/static/ so Nginx does not serve
+# them as public assets. Every download goes through an @admin_required Flask
+# endpoint.
+RECORDINGS_DIR = os.path.join(_DB_DIR, 'recordings')
+os.makedirs(RECORDINGS_DIR, exist_ok=True)
+
 engine = create_engine(db_URL)
 LocalSession = sessionmaker(bind=engine)
 
@@ -48,6 +54,24 @@ class EventLogs(Base):
     description = Column(String)
     value = Column(Float)
     timestamp = Column(DateTime, default=datetime.now)
+
+
+class Recording(Base):
+    __tablename__ = "recordings"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    filename = Column(String, unique=True, nullable=False)
+    trigger = Column(String, nullable=False)     # 'motion' | 'temperature'
+    started_at = Column(DateTime, default=datetime.now, nullable=False)
+    ended_at = Column(DateTime, nullable=True)
+    duration_s = Column(Float, nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 Base.metadata.create_all(engine)
@@ -262,6 +286,130 @@ def record_camera_event(filename: str) -> dict:
         db.rollback()
         logger.exception("record_camera_event failed")
         return {"success": False, "error": "Internal error", "status": 500}
+    finally:
+        db.close()
+
+
+import re as _re
+
+# Server-generated filenames only — this regex is the gate on every filesystem
+# operation touching recordings/. Path traversal is impossible because no caller
+# supplies a filename; we look them up by id.
+RECORDING_FILENAME_RE = _re.compile(r'^\d{8}-\d{6}_(motion|temperature)\.mp4$')
+
+
+def _valid_recording_filename(name: str) -> bool:
+    return bool(RECORDING_FILENAME_RE.match(name or ''))
+
+
+def create_recording_row(filename: str, trigger: str) -> int:
+    db = LocalSession()
+    try:
+        rec = Recording(filename=filename, trigger=trigger, started_at=datetime.now())
+        db.add(rec)
+        db.commit()
+        return rec.id
+    finally:
+        db.close()
+
+
+def finalise_recording_row(rec_id: int, duration_s: float, size_bytes: int) -> None:
+    db = LocalSession()
+    try:
+        rec = db.query(Recording).filter(Recording.id == rec_id).first()
+        if rec:
+            rec.ended_at = datetime.now()
+            rec.duration_s = duration_s
+            rec.size_bytes = size_bytes
+            db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("finalise_recording_row failed")
+    finally:
+        db.close()
+
+
+def list_recordings(limit: int = 200) -> list:
+    db = LocalSession()
+    try:
+        rows = (
+            db.query(Recording)
+            .order_by(desc(Recording.started_at))
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "filename": r.filename,
+                "trigger": r.trigger,
+                "started_at": r.started_at.strftime("%Y-%m-%d %H:%M:%S") if r.started_at else None,
+                "ended_at": r.ended_at.strftime("%Y-%m-%d %H:%M:%S") if r.ended_at else None,
+                "duration_s": r.duration_s,
+                "size_bytes": r.size_bytes,
+                "ready": r.ended_at is not None,
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
+
+
+def get_recording(rec_id: int):
+    db = LocalSession()
+    try:
+        return db.query(Recording).filter(Recording.id == rec_id).first()
+    finally:
+        db.close()
+
+
+def delete_recording(rec_id: int) -> dict:
+    db = LocalSession()
+    try:
+        rec = db.query(Recording).filter(Recording.id == rec_id).first()
+        if not rec:
+            return {"success": False, "error": "Recording not found", "status": 404}
+        if not _valid_recording_filename(rec.filename):
+            return {"success": False, "error": "Invalid filename on row", "status": 500}
+        path = os.path.join(RECORDINGS_DIR, rec.filename)
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            logger.exception("failed to remove recording file")
+        db.delete(rec)
+        db.commit()
+        return {"success": True, "message": "Recording deleted", "status": 200}
+    except Exception:
+        db.rollback()
+        logger.exception("delete_recording failed")
+        return {"success": False, "error": "Internal error", "status": 500}
+    finally:
+        db.close()
+
+
+def get_setting(key: str, default=None):
+    db = LocalSession()
+    try:
+        s = db.query(AppSetting).filter(AppSetting.key == key).first()
+        return s.value if s is not None else default
+    finally:
+        db.close()
+
+
+def set_setting(key: str, value) -> None:
+    db = LocalSession()
+    try:
+        s = db.query(AppSetting).filter(AppSetting.key == key).first()
+        if s is None:
+            db.add(AppSetting(key=key, value=(None if value is None else str(value))))
+        else:
+            s.value = None if value is None else str(value)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("set_setting failed")
+        raise
     finally:
         db.close()
 
