@@ -160,6 +160,12 @@ the warning (that is the normal outside view).
   The dashboard (on HTTPS, trusted via the CA) is immune to both
   passive sniffing and active MITM.
 - The ESP ingest stays on HTTP by design — that is the flaw you want
-  discovered.
-- Rotate `ESP_TOKEN` before the demo. It will be captured; rotating it
-  afterwards stops replay attacks from video recordings of the event.
+  discovered. The body is signed with an HMAC-SHA256 that never travels
+  on the wire, so attendees have two paths to exploit:
+    1. Capture a `(body, X-ESP-Signature)` pair and REPLAY it (trivial
+       once noticed, limited to values the ESP legitimately sent).
+    2. Dump the ESP32 flash with `esptool.py` and recover `hmac_key`
+       from the compiled firmware — gives full forgery capability.
+- Rotate `ESP_HMAC_KEY` (and the matching `hmac_key` in `esp-code/creds.h`)
+  before the demo, and again afterwards, so captured signatures cannot
+  be replayed against a future session.
