@@ -9,11 +9,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Inter', 'Segoe UI', sans-serif;
@@ -22,9 +18,8 @@
             min-height: 100vh;
         }
 
-        /* ── Top bar ── */
         .topbar {
-            background: linear-gradient(135deg, #111e30 0%, #182840 100%);
+            background: linear-gradient(135deg, #111e30, #182840);
             padding: 14px 28px;
             display: flex;
             justify-content: space-between;
@@ -33,146 +28,99 @@
             box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
         }
 
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
+        .topbar h1 { font-size: 20px; color: #fff; font-weight: 700; }
+        .topbar h1 span { color: #4da3ff; }
 
-        .topbar h1 {
-            font-size: 20px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 0.3px;
-        }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
 
-        .topbar h1 span {
-            color: #4da3ff;
-        }
-
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.25);
-            padding: 5px 14px;
+        .nav-link, .nav-button {
+            background: rgba(77, 163, 255, 0.1);
+            border: 1px solid rgba(77, 163, 255, 0.25);
+            color: #7bb8ff;
+            padding: 6px 14px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 500;
-            color: #4ade80;
+            text-decoration: none;
+            cursor: pointer;
+            font-family: inherit;
         }
+        .nav-link:hover, .nav-button:hover { background: rgba(77, 163, 255, 0.18); }
 
+        .status-pill {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            padding: 5px 14px; border-radius: 20px;
+            font-size: 12px; color: #4ade80;
+        }
         .status-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
+            width: 7px; height: 7px; border-radius: 50%;
             background-color: #22c55e;
             animation: pulse 2s ease-in-out infinite;
         }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.35; }
+        .tabs {
+            display: flex;
+            gap: 4px;
+            padding: 14px 18px 0;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .tab {
+            background: rgba(17, 30, 48, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: none;
+            color: #7aa4c8;
+            padding: 10px 20px;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.4px;
+        }
+        .tab.active {
+            background: linear-gradient(145deg, #111e30, #152236);
+            color: #dde6f0;
         }
 
-        /* ── Main layout ── */
         .dashboard {
-            display: flex;
-            gap: 18px;
-            padding: 18px;
-            height: calc(100vh - 57px);
+            padding: 0 18px 18px;
             max-width: 1400px;
             margin: 0 auto;
         }
 
-        /* ── Panels ── */
         .panel {
             background: linear-gradient(145deg, #111e30, #152236);
-            border-radius: 14px;
+            border-radius: 0 14px 14px 14px;
             border: 1px solid rgba(255, 255, 255, 0.06);
             box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
-            display: flex;
+            display: none;
             flex-direction: column;
             overflow: hidden;
+            min-height: 500px;
         }
-
-        .users-panel {
-            flex: 50;
-        }
-
-        .logs-panel {
-            flex: 50;
-        }
+        .panel.active { display: flex; }
 
         .panel-header {
             padding: 13px 18px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
+            font-size: 12px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1.2px;
             color: #7aa4c8;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between;
         }
 
-        .panel-header-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .panel-body { padding: 14px; flex: 1; overflow-y: auto; }
 
-        .panel-icon {
-            font-size: 14px;
-            opacity: 0.75;
-        }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; color: #dde6f0; }
+        th { padding: 10px; color: #7aa4c8; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+        table tr:last-child td { border-bottom: none; }
+        table tr:hover td { background: rgba(255,255,255,0.03); }
 
-        .panel-body {
-            padding: 14px;
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        /* ── Tables ── */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            text-align: left;
-            color: #dde6f0;
-        }
-
-        th {
-            padding: 10px;
-            color: #7aa4c8;
-            font-weight: 600;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        td {
-            padding: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            vertical-align: middle;
-        }
-
-        table tr:last-child td {
-            border-bottom: none;
-        }
-
-        table tr:hover td {
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        /* ── Inputs & Buttons ── */
-        input[type="text"], input[type="password"], select {
+        input[type="text"], input[type="password"], input[type="number"], select {
             background: rgba(7, 13, 23, 0.5);
             border: 1px solid rgba(77, 163, 255, 0.2);
             color: #dde6f0;
@@ -180,49 +128,105 @@
             padding: 6px 10px;
             font-size: 13px;
             width: 100%;
-            transition: all 0.2s ease;
+            font-family: inherit;
         }
-
-        input[type="text"]:focus, input[type="password"]:focus, select:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: #4da3ff;
-            box-shadow: 0 0 0 2px rgba(77, 163, 255, 0.2);
-        }
-
-        select {
-            cursor: pointer;
+            box-shadow: 0 0 0 2px rgba(77,163,255,0.2);
         }
 
         .btn {
             background: linear-gradient(135deg, #4da3ff, #007bff);
-            border: none;
-            color: #fff;
-            padding: 6px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: opacity 0.2s;
-            width: 100%;
+            border: none; color: #fff;
+            padding: 6px 14px; border-radius: 6px;
+            cursor: pointer; font-size: 12px; font-weight: 600;
+            font-family: inherit;
         }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
+        .btn:hover { opacity: 0.9; }
+        .btn.danger { background: linear-gradient(135deg, #f87171, #dc2626); }
+        .btn.ghost { background: transparent; border: 1px solid rgba(77,163,255,0.3); color: #7bb8ff; }
+        .btn-row { display: flex; gap: 6px; }
 
         .no-data {
-            text-align: center;
-            color: #3a5570;
-            font-size: 13px;
-            padding: 20px;
+            text-align: center; color: #3a5570;
+            padding: 30px; font-size: 13px;
         }
 
-        /* ── Responsive ── */
-        @media (max-width: 1000px) {
-            .dashboard {
-                flex-direction: column;
-                height: auto;
-            }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+        }
+        .badge.motion { background: rgba(249,115,22,0.15); color: #fdba74; border: 1px solid rgba(249,115,22,0.3); }
+        .badge.temperature { background: rgba(77,163,255,0.15); color: #93c5fd; border: 1px solid rgba(77,163,255,0.3); }
+
+        .active-banner {
+            background: rgba(34,197,94,0.08);
+            border: 1px solid rgba(34,197,94,0.3);
+            color: #4ade80;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-form {
+            max-width: 500px;
+            padding: 10px;
+        }
+        .settings-form label {
+            display: block;
+            font-size: 13px;
+            color: #7aa4c8;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .settings-form .help {
+            font-size: 12px;
+            color: #5a7a98;
+            margin-top: 6px;
+        }
+        .settings-form .form-group { margin-bottom: 18px; }
+        .settings-form .row { display: flex; gap: 10px; align-items: center; }
+
+        .modal-backdrop {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(4px);
+            align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal {
+            background: #0b1320;
+            border: 1px solid rgba(77,163,255,0.2);
+            border-radius: 14px;
+            padding: 20px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex; flex-direction: column;
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 14px;
+            color: #dde6f0;
+            font-weight: 600;
+        }
+        .modal video {
+            max-width: 80vw;
+            max-height: 70vh;
+            border-radius: 8px;
+            background: #000;
+        }
+        .modal-close {
+            background: none; border: none; color: #7bb8ff;
+            font-size: 22px; cursor: pointer; line-height: 1;
+            font-family: inherit;
         }
     </style>
 </head>
@@ -230,53 +234,48 @@
 <body>
 
     <div class="topbar">
-        <div class="topbar-left">
-            <h1><span>Admin</span> Dashboard</h1>
-        </div>
+        <h1><span>Admin</span> Dashboard</h1>
         <div class="topbar-right">
-            <div class="status-pill">
-                <div class="status-dot"></div>
-                Admin Live
-            </div>
+            <a class="nav-link" href="/blog/">← Back to Dashboard</a>
+            <form method="POST" action="/api/auth/logout" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="nav-button">Log out</button>
+            </form>
+            <div class="status-pill"><div class="status-dot"></div>Admin Live</div>
         </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="users">👥 Users</div>
+        <div class="tab" data-tab="logs">📋 System Logs</div>
+        <div class="tab" data-tab="recordings">🎥 Recordings</div>
+        <div class="tab" data-tab="settings">⚙️ Settings</div>
     </div>
 
     <div class="dashboard">
 
-        <!-- LEFT: Users Management -->
-        <div class="panel users-panel">
-            <div class="panel-header">
-                <div class="panel-header-left">
-                    <span class="panel-icon">👥</span>
-                    Users Management
-                </div>
-            </div>
+        <!-- USERS -->
+        <div class="panel active" id="panel-users">
+            <div class="panel-header">Users management</div>
             <div class="panel-body">
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 5%;">ID</th>
-                            <th style="width: 25%;">Username</th>
-                            <th style="width: 25%;">New Password</th>
-                            <th style="width: 20%;">Permissions</th>
-                            <th style="width: 25%;">Actions</th>
+                            <th style="width:5%;">ID</th>
+                            <th style="width:25%;">Username</th>
+                            <th style="width:25%;">New password</th>
+                            <th style="width:20%;">Role</th>
+                            <th style="width:25%;">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="users-table-body">
-                        <!-- User rows will be loaded here -->
-                    </tbody>
+                    <tbody id="users-table-body"></tbody>
                 </table>
             </div>
         </div>
 
-        <!-- RIGHT: System Logs -->
-        <div class="panel logs-panel">
-            <div class="panel-header">
-                <div class="panel-header-left">
-                    <span class="panel-icon">📋</span>
-                    System Logs (last 100)
-                </div>
-            </div>
+        <!-- LOGS -->
+        <div class="panel" id="panel-logs">
+            <div class="panel-header">System logs (last 100)</div>
             <div class="panel-body">
                 <table>
                     <thead>
@@ -288,152 +287,207 @@
                             <th>Timestamp</th>
                         </tr>
                     </thead>
-                    <tbody id="logs-table-body">
-                        <!-- Log rows will be loaded here -->
-                    </tbody>
+                    <tbody id="logs-table-body"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- RECORDINGS -->
+        <div class="panel" id="panel-recordings">
+            <div class="panel-header">
+                Camera recordings
+                <button class="btn ghost" onclick="loadRecordings()">Refresh</button>
+            </div>
+            <div class="panel-body">
+                <div id="active-banner"></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Started</th>
+                            <th>Trigger</th>
+                            <th>Duration</th>
+                            <th>Size</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordings-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div class="panel" id="panel-settings">
+            <div class="panel-header">Application settings</div>
+            <div class="panel-body">
+                <form class="settings-form" id="settings-form" onsubmit="saveSettings(event)">
+                    <div class="form-group">
+                        <label for="temp-threshold">
+                            Temperature alarm threshold (°C)
+                        </label>
+                        <div class="row">
+                            <input type="number" step="0.1" min="-20" max="60"
+                                   id="temp-threshold" placeholder="e.g. 18">
+                            <button type="submit" class="btn">Save</button>
+                            <button type="button" class="btn ghost" onclick="clearThreshold()">Disable</button>
+                        </div>
+                        <div class="help">
+                            When the sensor reports a value strictly below this
+                            threshold, a recording starts and keeps running
+                            until the reading comes back up. Leave blank (or
+                            click <em>Disable</em>) to turn the feature off.
+                            Allowed range: −20 °C to 60 °C.
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
 
     </div>
 
+    <!-- Playback modal -->
+    <div class="modal-backdrop" id="video-modal" onclick="closeVideoIfBackdrop(event)">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="video-title">Recording</span>
+                <button class="modal-close" onclick="closeVideo()">×</button>
+            </div>
+            <video id="video-player" controls autoplay></video>
+        </div>
+    </div>
+
     <script>
-        // Build a <td> containing text — uses textContent to prevent XSS.
+        const csrf = () => document.querySelector('meta[name="csrf-token"]').content;
+
+        // ─── Tabs ───────────────────────────────────────────────────
+        function showTab(name) {
+            document.querySelectorAll('.tab').forEach(t =>
+                t.classList.toggle('active', t.dataset.tab === name)
+            );
+            document.querySelectorAll('.panel').forEach(p =>
+                p.classList.toggle('active', p.id === 'panel-' + name)
+            );
+            if (name === 'users') loadUsers();
+            if (name === 'logs') loadLogs();
+            if (name === 'recordings') loadRecordings();
+            if (name === 'settings') loadSettings();
+        }
+        document.querySelectorAll('.tab').forEach(t =>
+            t.addEventListener('click', () => showTab(t.dataset.tab))
+        );
+
+        // ─── DOM helpers ────────────────────────────────────────────
         function buildTextCell(text) {
             const td = document.createElement('td');
             td.textContent = text;
             return td;
         }
 
-        // Fetch and display users. All user-controlled strings are injected
-        // via .value / .textContent, never as innerHTML — otherwise a username
-        // like `"><img src=x onerror=...>` would execute in every admin's browser.
+        // ─── Users ──────────────────────────────────────────────────
         async function loadUsers() {
             try {
-                const response = await fetch('/admin/users');
-                const data = await response.json();
-
+                const r = await fetch('/admin/users');
+                const data = await r.json();
                 const tbody = document.getElementById('users-table-body');
                 tbody.replaceChildren();
 
                 data.users.forEach(user => {
                     const tr = document.createElement('tr');
-
                     tr.appendChild(buildTextCell(user.user_id));
 
                     const tdUser = document.createElement('td');
-                    const usernameInput = document.createElement('input');
-                    usernameInput.type = 'text';
-                    usernameInput.id = `username-${user.user_id}`;
-                    usernameInput.value = user.username;   // .value is never parsed as HTML
-                    tdUser.appendChild(usernameInput);
-                    tr.appendChild(tdUser);
+                    const un = document.createElement('input');
+                    un.type = 'text'; un.id = 'username-' + user.user_id;
+                    un.value = user.username;
+                    tdUser.appendChild(un); tr.appendChild(tdUser);
 
                     const tdPwd = document.createElement('td');
-                    const pwdInput = document.createElement('input');
-                    pwdInput.type = 'password';
-                    pwdInput.id = `password-${user.user_id}`;
-                    pwdInput.placeholder = 'Leave blank to keep';
-                    tdPwd.appendChild(pwdInput);
-                    tr.appendChild(tdPwd);
+                    const pw = document.createElement('input');
+                    pw.type = 'password'; pw.id = 'password-' + user.user_id;
+                    pw.placeholder = 'Leave blank to keep';
+                    tdPwd.appendChild(pw); tr.appendChild(tdPwd);
 
                     const tdPerm = document.createElement('td');
-                    const permSelect = document.createElement('select');
-                    permSelect.id = `perm-${user.user_id}`;
-                    permSelect.className = 'select-permissions';
+                    const sel = document.createElement('select');
+                    sel.id = 'perm-' + user.user_id;
                     for (const p of ['user', 'Admin']) {
                         const opt = document.createElement('option');
                         opt.value = p;
                         opt.textContent = p === 'user' ? 'User' : 'Admin';
                         if (user.permissions === p) opt.selected = true;
-                        permSelect.appendChild(opt);
+                        sel.appendChild(opt);
                     }
-                    tdPerm.appendChild(permSelect);
-                    tr.appendChild(tdPerm);
+                    tdPerm.appendChild(sel); tr.appendChild(tdPerm);
 
-                    const tdAction = document.createElement('td');
-                    const btn = document.createElement('button');
-                    btn.className = 'btn';
-                    btn.textContent = '🛠️ Update';
-                    btn.addEventListener('click', () => updateUser(user.user_id));
-                    tdAction.appendChild(btn);
-                    tr.appendChild(tdAction);
+                    const tdAct = document.createElement('td');
+                    const row = document.createElement('div'); row.className = 'btn-row';
+                    const update = document.createElement('button');
+                    update.className = 'btn'; update.textContent = '🛠 Update';
+                    update.addEventListener('click', () => updateUser(user.user_id));
+                    row.appendChild(update);
+                    const del = document.createElement('button');
+                    del.className = 'btn danger'; del.textContent = '🗑 Delete';
+                    del.addEventListener('click', () => deleteUser(user.username));
+                    row.appendChild(del);
+                    tdAct.appendChild(row); tr.appendChild(tdAct);
 
                     tbody.appendChild(tr);
                 });
-            } catch (error) {
-                console.error('Error loading users:', error);
-            }
+            } catch (err) { console.error(err); }
         }
 
-        // Update full user (permissions, username, password).
-        // When a new password is set, we prompt the acting admin for their
-        // OWN current password so a hijacked session cannot trivially rotate
-        // credentials.
         async function updateUser(userId) {
-            const newUsername = document.getElementById(`username-${userId}`).value;
-            const newPassword = document.getElementById(`password-${userId}`).value;
-            const newPermissions = document.getElementById(`perm-${userId}`).value;
+            const newUsername = document.getElementById('username-' + userId).value;
+            const newPassword = document.getElementById('password-' + userId).value;
+            const newPermissions = document.getElementById('perm-' + userId).value;
 
-            const body = {
-                username: newUsername,
-                permissions: newPermissions
-            };
+            const body = { username: newUsername, permissions: newPermissions };
             if (newPassword) {
-                const currentPwd = prompt(
-                    'Confirm your own admin password to change this user\'s password:'
-                );
-                if (!currentPwd) return;
+                const pwd = prompt("Confirm your own admin password to change this user's password:");
+                if (!pwd) return;
                 body.password = newPassword;
-                body.current_password = currentPwd;
+                body.current_password = pwd;
             }
-
             try {
-                const csrf = document.querySelector('meta[name="csrf-token"]').content;
-                const response = await fetch(`/admin/users/${userId}`, {
+                const r = await fetch('/admin/users/' + userId, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrf
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
                     body: JSON.stringify(body)
                 });
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert('Success: ' + result.message);
-                    loadUsers();
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error updating user:', error);
-                alert('An error occurred.');
-            }
+                const result = await r.json();
+                if (r.ok) { alert('Success: ' + result.message); loadUsers(); }
+                else { alert('Error: ' + result.error); }
+            } catch (err) { console.error(err); alert('Request failed.'); }
         }
 
-        // Fetch and display logs. log.description is populated by the sensor
-        // ingest endpoints (attacker-controlled on /api/blog/sensor_data) —
-        // rendering it with textContent prevents stored XSS in the admin view.
+        async function deleteUser(targetUsername) {
+            if (!confirm(`Delete user "${targetUsername}"? This cannot be undone.`)) return;
+            try {
+                const r = await fetch('/api/auth/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+                    body: JSON.stringify({ target_user: targetUsername })
+                });
+                const result = await r.json();
+                if (r.ok) { alert('User deleted.'); loadUsers(); }
+                else { alert('Error: ' + (result.error || 'unknown')); }
+            } catch (err) { console.error(err); alert('Request failed.'); }
+        }
+
+        // ─── Logs ───────────────────────────────────────────────────
         async function loadLogs() {
             try {
-                const response = await fetch('/admin/logs');
-                const data = await response.json();
-
+                const r = await fetch('/admin/logs');
+                const data = await r.json();
                 const tbody = document.getElementById('logs-table-body');
                 tbody.replaceChildren();
 
                 if (data.logs.length === 0) {
                     const tr = document.createElement('tr');
                     const td = document.createElement('td');
-                    td.colSpan = 5;
-                    td.className = 'no-data';
+                    td.colSpan = 5; td.className = 'no-data';
                     td.textContent = 'No logs found';
-                    tr.appendChild(td);
-                    tbody.appendChild(tr);
-                    return;
+                    tr.appendChild(td); tbody.appendChild(tr); return;
                 }
-
                 data.logs.forEach(log => {
                     const tr = document.createElement('tr');
                     tr.appendChild(buildTextCell(log.id));
@@ -443,16 +497,167 @@
                     tr.appendChild(buildTextCell(log.timestamp || '-'));
                     tbody.appendChild(tr);
                 });
-            } catch (error) {
-                console.error('Error loading logs:', error);
-            }
+            } catch (err) { console.error(err); }
         }
 
-        // Initial load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadUsers();
-            loadLogs();
-        });
+        // ─── Recordings ─────────────────────────────────────────────
+        function fmtSize(bytes) {
+            if (bytes == null) return '-';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+        }
+        function fmtDuration(s) {
+            if (s == null) return '-';
+            return s.toFixed(1) + ' s';
+        }
+
+        async function loadRecordings() {
+            try {
+                const r = await fetch('/admin/recordings');
+                const data = await r.json();
+                const banner = document.getElementById('active-banner');
+                banner.replaceChildren();
+                if (data.active) {
+                    const span = document.createElement('span');
+                    span.innerHTML = '';
+                    span.appendChild(document.createTextNode('● Recording in progress — trigger: '));
+                    const b = document.createElement('strong');
+                    b.textContent = data.active.trigger;
+                    span.appendChild(b);
+                    banner.className = 'active-banner';
+                    banner.appendChild(span);
+                } else {
+                    banner.className = '';
+                }
+
+                const tbody = document.getElementById('recordings-table-body');
+                tbody.replaceChildren();
+
+                if (!data.recordings || data.recordings.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 5; td.className = 'no-data';
+                    td.textContent = 'No recordings yet';
+                    tr.appendChild(td); tbody.appendChild(tr); return;
+                }
+
+                data.recordings.forEach(rec => {
+                    const tr = document.createElement('tr');
+                    tr.appendChild(buildTextCell(rec.started_at || '-'));
+
+                    const tdTrig = document.createElement('td');
+                    const badge = document.createElement('span');
+                    badge.className = 'badge ' + rec.trigger;
+                    badge.textContent = rec.trigger;
+                    tdTrig.appendChild(badge); tr.appendChild(tdTrig);
+
+                    tr.appendChild(buildTextCell(fmtDuration(rec.duration_s)));
+                    tr.appendChild(buildTextCell(fmtSize(rec.size_bytes)));
+
+                    const tdAct = document.createElement('td');
+                    const row = document.createElement('div'); row.className = 'btn-row';
+
+                    if (rec.ready) {
+                        const play = document.createElement('button');
+                        play.className = 'btn'; play.textContent = '▶ Play';
+                        play.addEventListener('click', () => openVideo(rec));
+                        row.appendChild(play);
+
+                        const dl = document.createElement('a');
+                        dl.className = 'btn ghost';
+                        dl.href = '/admin/recordings/' + rec.id + '/download';
+                        dl.textContent = '⬇ Download';
+                        row.appendChild(dl);
+
+                        const del = document.createElement('button');
+                        del.className = 'btn danger'; del.textContent = '🗑 Delete';
+                        del.addEventListener('click', () => deleteRecording(rec.id));
+                        row.appendChild(del);
+                    } else {
+                        const pending = document.createElement('span');
+                        pending.style.color = '#7aa4c8';
+                        pending.style.fontSize = '12px';
+                        pending.textContent = 'Finalising…';
+                        row.appendChild(pending);
+                    }
+                    tdAct.appendChild(row); tr.appendChild(tdAct);
+
+                    tbody.appendChild(tr);
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function deleteRecording(id) {
+            if (!confirm('Delete this recording permanently?')) return;
+            try {
+                const r = await fetch('/admin/recordings/' + id, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrf() }
+                });
+                const result = await r.json();
+                if (r.ok) loadRecordings();
+                else alert('Error: ' + (result.error || 'unknown'));
+            } catch (err) { console.error(err); alert('Request failed.'); }
+        }
+
+        function openVideo(rec) {
+            const modal = document.getElementById('video-modal');
+            document.getElementById('video-title').textContent =
+                rec.trigger + ' — ' + (rec.started_at || '');
+            const v = document.getElementById('video-player');
+            v.src = '/admin/recordings/' + rec.id + '/stream';
+            modal.classList.add('open');
+        }
+        function closeVideo() {
+            const modal = document.getElementById('video-modal');
+            const v = document.getElementById('video-player');
+            v.pause(); v.src = '';
+            modal.classList.remove('open');
+        }
+        function closeVideoIfBackdrop(e) {
+            if (e.target.id === 'video-modal') closeVideo();
+        }
+
+        // ─── Settings ───────────────────────────────────────────────
+        async function loadSettings() {
+            try {
+                const r = await fetch('/admin/settings');
+                const data = await r.json();
+                const input = document.getElementById('temp-threshold');
+                input.value = (data.temperature_alarm_below == null) ? '' : data.temperature_alarm_below;
+            } catch (err) { console.error(err); }
+        }
+
+        async function saveSettings(ev) {
+            ev.preventDefault();
+            const raw = document.getElementById('temp-threshold').value;
+            const payload = { temperature_alarm_below: (raw === '') ? null : parseFloat(raw) };
+            try {
+                const r = await fetch('/admin/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+                    body: JSON.stringify(payload)
+                });
+                const result = await r.json();
+                if (r.ok) alert('Settings saved.');
+                else alert('Error: ' + (result.error || 'unknown'));
+            } catch (err) { console.error(err); alert('Request failed.'); }
+        }
+
+        async function clearThreshold() {
+            document.getElementById('temp-threshold').value = '';
+            const ev = new Event('submit', { cancelable: true });
+            saveSettings(ev);
+        }
+
+        // ─── Boot ───────────────────────────────────────────────────
+        showTab('users');
+        // poll recordings every 5s when the tab is active
+        setInterval(() => {
+            const active = document.querySelector('.panel.active');
+            if (active && active.id === 'panel-recordings') loadRecordings();
+        }, 5000);
     </script>
 </body>
 

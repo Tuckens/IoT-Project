@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>IoT Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
@@ -354,6 +355,28 @@
                 <div class="status-dot"></div>
                 Live
             </div>
+            <a id="adminLink" href="/admin/" style="display:none;
+                background: rgba(77,163,255,0.1);
+                border: 1px solid rgba(77,163,255,0.25);
+                color: #7bb8ff;
+                padding: 5px 14px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 500;
+                text-decoration: none;">⚙ Admin</a>
+            <form method="POST" action="/api/auth/logout" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" style="
+                    background: rgba(77,163,255,0.1);
+                    border: 1px solid rgba(77,163,255,0.25);
+                    color: #7bb8ff;
+                    padding: 5px 14px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    font-family: inherit;">Log out</button>
+            </form>
         </div>
     </div>
 
@@ -694,8 +717,21 @@
             }
         }
 
+        /* ─── Show Admin link only for admins ─── */
+        async function checkRole() {
+            try {
+                const r = await fetch('/api/auth/me');
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data.is_admin) {
+                    document.getElementById('adminLink').style.display = 'inline-block';
+                }
+            } catch (err) { /* silent */ }
+        }
+
         /* ─── Bootstrap ─── */
 
+        checkRole();
         checkConfig();
         fetchSensorData();
         fetchLatest();
