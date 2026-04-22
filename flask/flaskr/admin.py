@@ -2,7 +2,7 @@ import logging
 
 from flask import Blueprint, render_template, request, jsonify, session, current_app
 from sqlalchemy import desc
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import LocalSession, User, EventLogs
 from decorators import admin_required
@@ -79,6 +79,17 @@ def update_user(user_id):
                 return jsonify(
                     {"error": f"password must be at least {min_len} characters"}
                 ), 400
+            # Defence against session hijacking: before any password change
+            # (including the admin's own), require the acting admin to prove
+            # knowledge of their own current password.
+            current_password = data.get('current_password') or ''
+            requester = db.query(User).filter(User.user_id == current_user_id).first()
+            if not requester or not check_password_hash(
+                    requester.password_hash, current_password):
+                return jsonify(
+                    {"error": "current_password is required and must match "
+                              "the acting admin's password"}
+                ), 403
             user.password_hash = generate_password_hash(new_password)
 
         db.commit()

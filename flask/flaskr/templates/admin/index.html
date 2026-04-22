@@ -365,29 +365,39 @@
             }
         }
 
-        // Update full user (permissions, username, password)
+        // Update full user (permissions, username, password).
+        // When a new password is set, we prompt the acting admin for their
+        // OWN current password so a hijacked session cannot trivially rotate
+        // credentials.
         async function updateUser(userId) {
             const newUsername = document.getElementById(`username-${userId}`).value;
             const newPassword = document.getElementById(`password-${userId}`).value;
             const newPermissions = document.getElementById(`perm-${userId}`).value;
 
+            const body = {
+                username: newUsername,
+                permissions: newPermissions
+            };
+            if (newPassword) {
+                const currentPwd = prompt(
+                    'Confirm your own admin password to change this user\'s password:'
+                );
+                if (!currentPwd) return;
+                body.password = newPassword;
+                body.current_password = currentPwd;
+            }
+
             try {
                 const response = await fetch(`/admin/users/${userId}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        username: newUsername,
-                        password: newPassword, // it's sent empty if unchanged, the backend ignores it
-                        permissions: newPermissions
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
                 });
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     alert('Success: ' + result.message);
-                    loadUsers(); // reload to refresh fields
+                    loadUsers();
                 } else {
                     alert('Error: ' + result.error);
                 }
