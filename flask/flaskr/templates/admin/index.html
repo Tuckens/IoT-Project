@@ -297,35 +297,67 @@
     </div>
 
     <script>
-        // Fetch and display users
+        // Build a <td> containing text — uses textContent to prevent XSS.
+        function buildTextCell(text) {
+            const td = document.createElement('td');
+            td.textContent = text;
+            return td;
+        }
+
+        // Fetch and display users. All user-controlled strings are injected
+        // via .value / .textContent, never as innerHTML — otherwise a username
+        // like `"><img src=x onerror=...>` would execute in every admin's browser.
         async function loadUsers() {
             try {
                 const response = await fetch('/admin/users');
                 const data = await response.json();
-                
+
                 const tbody = document.getElementById('users-table-body');
-                tbody.innerHTML = '';
+                tbody.replaceChildren();
 
                 data.users.forEach(user => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${user.user_id}</td>
-                        <td>
-                            <input type="text" id="username-${user.user_id}" value="${user.username}" />
-                        </td>
-                        <td>
-                            <input type="password" id="password-${user.user_id}" placeholder="Leave blank to keep" />
-                        </td>
-                        <td>
-                            <select id="perm-${user.user_id}" class="select-permissions">
-                                <option value="user" ${user.permissions === 'user' ? 'selected' : ''}>User</option>
-                                <option value="Admin" ${user.permissions === 'Admin' ? 'selected' : ''}>Admin</option>
-                            </select>
-                        </td>
-                        <td>
-                            <button class="btn" onclick="updateUser(${user.user_id})">🛠️ Update</button>
-                        </td>
-                    `;
+
+                    tr.appendChild(buildTextCell(user.user_id));
+
+                    const tdUser = document.createElement('td');
+                    const usernameInput = document.createElement('input');
+                    usernameInput.type = 'text';
+                    usernameInput.id = `username-${user.user_id}`;
+                    usernameInput.value = user.username;   // .value is never parsed as HTML
+                    tdUser.appendChild(usernameInput);
+                    tr.appendChild(tdUser);
+
+                    const tdPwd = document.createElement('td');
+                    const pwdInput = document.createElement('input');
+                    pwdInput.type = 'password';
+                    pwdInput.id = `password-${user.user_id}`;
+                    pwdInput.placeholder = 'Leave blank to keep';
+                    tdPwd.appendChild(pwdInput);
+                    tr.appendChild(tdPwd);
+
+                    const tdPerm = document.createElement('td');
+                    const permSelect = document.createElement('select');
+                    permSelect.id = `perm-${user.user_id}`;
+                    permSelect.className = 'select-permissions';
+                    for (const p of ['user', 'Admin']) {
+                        const opt = document.createElement('option');
+                        opt.value = p;
+                        opt.textContent = p === 'user' ? 'User' : 'Admin';
+                        if (user.permissions === p) opt.selected = true;
+                        permSelect.appendChild(opt);
+                    }
+                    tdPerm.appendChild(permSelect);
+                    tr.appendChild(tdPerm);
+
+                    const tdAction = document.createElement('td');
+                    const btn = document.createElement('button');
+                    btn.className = 'btn';
+                    btn.textContent = '🛠️ Update';
+                    btn.addEventListener('click', () => updateUser(user.user_id));
+                    tdAction.appendChild(btn);
+                    tr.appendChild(tdAction);
+
                     tbody.appendChild(tr);
                 });
             } catch (error) {
@@ -365,29 +397,35 @@
             }
         }
 
-        // Fetch and display logs
+        // Fetch and display logs. log.description is populated by the sensor
+        // ingest endpoints (attacker-controlled on /api/blog/sensor_data) —
+        // rendering it with textContent prevents stored XSS in the admin view.
         async function loadLogs() {
             try {
                 const response = await fetch('/admin/logs');
                 const data = await response.json();
-                
+
                 const tbody = document.getElementById('logs-table-body');
-                tbody.innerHTML = '';
+                tbody.replaceChildren();
 
                 if (data.logs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="no-data">No logs found</td></tr>`;
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 5;
+                    td.className = 'no-data';
+                    td.textContent = 'No logs found';
+                    tr.appendChild(td);
+                    tbody.appendChild(tr);
                     return;
                 }
 
                 data.logs.forEach(log => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${log.id}</td>
-                        <td>${log.eventtype}</td>
-                        <td>${log.description || '-'}</td>
-                        <td>${log.value !== null ? log.value : '-'}</td>
-                        <td>${log.timestamp || '-'}</td>
-                    `;
+                    tr.appendChild(buildTextCell(log.id));
+                    tr.appendChild(buildTextCell(log.eventtype));
+                    tr.appendChild(buildTextCell(log.description || '-'));
+                    tr.appendChild(buildTextCell(log.value !== null ? log.value : '-'));
+                    tr.appendChild(buildTextCell(log.timestamp || '-'));
                     tbody.appendChild(tr);
                 });
             } catch (error) {
