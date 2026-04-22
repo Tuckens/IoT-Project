@@ -1,0 +1,40 @@
+# /etc/systemd/system/iot-dashboard.service
+#
+# Runs the Flask dashboard under a dedicated non-root user via gunicorn.
+#   sudo useradd --system --home /home/pi/IoT-Project --shell /usr/sbin/nologin iotapp
+#   sudo chown -R iotapp:iotapp /home/pi/IoT-Project/flask/flaskr
+#   sudo systemctl enable --now iot-dashboard
+
+[Unit]
+Description=IoT dashboard (Flask)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=iotapp
+Group=iotapp
+WorkingDirectory=/home/pi/IoT-Project/flask/flaskr
+EnvironmentFile=/home/pi/IoT-Project/flask/flaskr/.env
+ExecStart=/home/pi/IoT-Project/.venv/bin/gunicorn \
+          --bind 127.0.0.1:5000 \
+          --workers 2 \
+          --access-logfile - \
+          app:app
+Restart=on-failure
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/pi/IoT-Project/flask/flaskr
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
