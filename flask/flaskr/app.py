@@ -22,12 +22,19 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Behind Nginx: trust a single proxy hop for scheme and client IP so that
-    #   - session cookies can be flagged Secure based on the real scheme;
-    #   - Flask-Limiter sees the real client IP instead of 127.0.0.1 (which
-    #     would collapse everyone to the same bucket);
-    #   - Flask-WTF's Referer check validates against the real origin.
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    # Trust N proxy hops for scheme / client IP / host:
+    #   - 1 when the browser hits the Pi's own nginx directly (bpem.local);
+    #   - 2 when the browser goes through an additional public reverse
+    #     proxy in front (e.g. bpem.vdrfinances.be → Pi's nginx → gunicorn).
+    # Configurable via PROXY_HOPS so the same code can run in both modes
+    # without relaxing trust unnecessarily.
+    proxy_hops = int(os.environ.get('PROXY_HOPS', '1'))
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=proxy_hops,
+        x_proto=proxy_hops,
+        x_host=proxy_hops,
+    )
 
     csrf.init_app(app)
     # Flask-WTF's init_app already setdefault()s WTF_CSRF_SSL_STRICT=True, so
