@@ -48,10 +48,11 @@ def admin_required(f):
             if _wants_json():
                 return jsonify({"error": "Authentication required"}), 401
             return redirect(url_for('auth.api_login'))
+        # Always mirror the DB permissions into the session so routes that
+        # read session['permissions'] directly (defence-in-depth callers)
+        # see the current value — not whatever was baked in at login.
+        session['permissions'] = user.permissions
         if user.permissions != 'Admin':
-            # Keep the session cookie in sync with the DB so subsequent checks
-            # also reflect the demotion immediately.
-            session['permissions'] = user.permissions
             if _wants_json():
                 return jsonify({"error": "Admin permission required"}), 403
             return render_template('auth/403.html'), 403

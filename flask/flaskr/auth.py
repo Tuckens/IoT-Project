@@ -4,17 +4,13 @@ from flask import (
 )
 
 from db import create_user, login, delete_user
+from decorators import admin_required
 
 auth_bp = Blueprint('auth', __name__)
 
 
 def _limiter():
     return current_app.extensions.get('limiter')
-
-
-@auth_bp.route('/index', methods=['GET'])
-def index():
-    return render_template('auth/index.html')
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -75,17 +71,15 @@ def api_register():
 
 
 @auth_bp.route('/delete', methods=['POST', 'GET'])
+@admin_required
 def api_delete():
     if request.method == 'GET':
         return render_template('auth/delete.html')
 
-    # Identity of the requester MUST come from the session, never from the body —
-    # otherwise any client could spoof "requester_user":"Admin" and delete anyone.
+    # admin_required already verified the caller is still an Admin in the DB
+    # (not just in the cookie). Identity of the requester still comes from
+    # the session — never from the body — to stop requester-spoofing.
     requester_username = session.get('username')
-    if not requester_username:
-        return jsonify({"error": "Authentication required"}), 401
-    if session.get('permissions') != 'Admin':
-        return jsonify({"error": "Admin permission required"}), 403
 
     data = request.get_json(silent=True) or {}
     target_username = (data.get('target_user') or '').strip()
