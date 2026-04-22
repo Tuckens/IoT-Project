@@ -1,18 +1,18 @@
-#include <WiFi.h>            
-#include <HTTPClient.h>      
+#include <WiFi.h>
+#include <HTTPClient.h>
 #include <DHT.h>
 #include "creds.h"
 
-#define DEBUG_MODE    // Commenter pour supprimer les infos de débogage dans le Serial
+#define DEBUG_MODE // Commenter pour supprimer les infos de débogage dans le Serial
 // #define NOWIFI        // Commenter lors de l'utilisation avec le Raspberry PI
 
-#define PIR 33          
+#define PIR 33
 
-#define DHTPIN  32         
-#define DHTTYPE DHT22       
+#define DHTPIN 32
+#define DHTTYPE DHT22
 
-#define DHT_RETRY_DELAY    2500
-#define DHT_REINIT_AFTER   5
+#define DHT_RETRY_DELAY 2500
+#define DHT_REINIT_AFTER 5
 
 String pi_hostname = "bpem.local";
 DHT dht(DHTPIN, DHTTYPE);
@@ -23,32 +23,36 @@ void readDHTBlocking(float &temperature, float &humidity)
 {
   unsigned int failCount = 0;
 
-  while (true) {
+  while (true)
+  {
     temperature = dht.readTemperature();
-    humidity    = dht.readHumidity();
+    humidity = dht.readHumidity();
 
-    if (!isnan(temperature) && !isnan(humidity)) {
-      if (failCount > 0) {
-        #ifdef DEBUG_MODE
+    if (!isnan(temperature) && !isnan(humidity))
+    {
+      if (failCount > 0)
+      {
+#ifdef DEBUG_MODE
         Serial.print("AM2302 recovered after ");
         Serial.print(failCount);
         Serial.println(" failed attempt(s)");
-        #endif
+#endif
       }
       return;
     }
 
     failCount++;
-    #ifdef DEBUG_MODE
+#ifdef DEBUG_MODE
     Serial.print("Failed to read from AM2302! (attempt ");
     Serial.print(failCount);
     Serial.println(")");
-    #endif
+#endif
 
-    if (failCount % DHT_REINIT_AFTER == 0) {
-      #ifdef DEBUG_MODE
+    if (failCount % DHT_REINIT_AFTER == 0)
+    {
+#ifdef DEBUG_MODE
       Serial.println("Re-initializing AM2302...");
-      #endif
+#endif
       dht.begin();
     }
 
@@ -69,10 +73,11 @@ void setup()
 
 #ifndef NOWIFI
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    #ifdef DEBUG_MODE
-      Serial.print(".");
-    #endif
+  while (WiFi.status() != WL_CONNECTED)
+  {
+#ifdef DEBUG_MODE
+    Serial.print(".");
+#endif
     delay(500);
   }
 #endif
@@ -82,15 +87,15 @@ void setup()
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 #endif
-/*-----------------------END OF WIFI SETUP------------------------*/
+  /*-----------------------END OF WIFI SETUP------------------------*/
 
-/*---------------------------AM2302 SETUP---------------------------*/
+  /*---------------------------AM2302 SETUP---------------------------*/
   dht.begin();
   delay(2000);
 #ifdef DEBUG_MODE
   Serial.println("AM2302 (DHT22) initialized");
 #endif
-/*-----------------------END OF AM2302 SETUP-----------------------*/
+  /*-----------------------END OF AM2302 SETUP-----------------------*/
 }
 
 unsigned int count = 0;
@@ -116,18 +121,18 @@ void loop()
 
 /*---------------------------mDNS RESOLUTION---------------------------*/
 #ifndef NOWIFI
-  while(!WiFi.hostByName(pi_hostname.c_str(), serverIP) || serverIP.toString() == "0.0.0.0")
+  while (!WiFi.hostByName(pi_hostname.c_str(), serverIP) || serverIP.toString() == "0.0.0.0")
   {
-    #ifdef DEBUG_MODE
+#ifdef DEBUG_MODE
     Serial.println("DNS failed, retrying...");
-    #endif
+#endif
     delay(1000);
   }
 
-  #ifdef DEBUG_MODE
+#ifdef DEBUG_MODE
   Serial.print("Resolved Raspberry Pi IP: ");
   Serial.println(serverIP.toString());
-  #endif
+#endif
 #endif
 /*-----------------------END OF mDNS RESOLUTION------------------------*/
 
@@ -151,16 +156,16 @@ void loop()
   Serial.println(payload);
 #endif
 
-  int httpResponseCode = http.POST((uint8_t*)payload, strlen(payload));
+  int httpResponseCode = http.POST((uint8_t *)payload, strlen(payload));
 #ifdef DEBUG_MODE
   Serial.print("POST: ");
   Serial.println(httpResponseCode);
 #endif
   http.end();
 #endif
-/*-----------------------END OF HTTP CONNECTION------------------------*/
+  /*-----------------------END OF HTTP CONNECTION------------------------*/
 
   count++;
-  
-  delay(5000); 
+
+  delay(5000);
 }
