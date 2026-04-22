@@ -30,10 +30,11 @@ def create_app() -> Flask:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     csrf.init_app(app)
-    # The SSL-strict referer check breaks behind a self-signed proxy with
-    # Host != X-Forwarded-Host in some clients; the session cookie's
-    # SameSite=Lax + Secure already blocks cross-site POST.
-    app.config.setdefault('WTF_CSRF_SSL_STRICT', False)
+    # Flask-WTF's init_app already setdefault()s WTF_CSRF_SSL_STRICT=True, so
+    # a later setdefault is a no-op — we must assign directly. We keep the
+    # Referer check ON (see Referrer-Policy below); this line just documents
+    # that we rely on it rather than turning it off.
+    app.config['WTF_CSRF_SSL_STRICT'] = True
 
     limiter = Limiter(
         get_remote_address,
@@ -58,7 +59,10 @@ def create_app() -> Flask:
     def _security_headers(response):
         response.headers.setdefault('X-Content-Type-Options', 'nosniff')
         response.headers.setdefault('X-Frame-Options', 'DENY')
-        response.headers.setdefault('Referrer-Policy', 'no-referrer')
+        # same-origin: strip Referer for cross-site navigations (no leaking
+        # our URLs to third parties) but keep it for our own POSTs, which
+        # Flask-WTF's CSRF layer needs to validate.
+        response.headers.setdefault('Referrer-Policy', 'same-origin')
         response.headers.setdefault(
             'Content-Security-Policy',
             "default-src 'self'; "
