@@ -38,9 +38,12 @@ def create_app() -> Flask:
         response.headers.setdefault('Referrer-Policy', 'no-referrer')
         response.headers.setdefault(
             'Content-Security-Policy',
-            "default-src 'self'; img-src 'self' data:; "
-            "style-src 'self' 'unsafe-inline'; "
-            "script-src 'self' 'unsafe-inline'"
+            "default-src 'self'; "
+            "img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "connect-src 'self'"
         )
         if app.config.get('SESSION_COOKIE_SECURE'):
             response.headers.setdefault(
