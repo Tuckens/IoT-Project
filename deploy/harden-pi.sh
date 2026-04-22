@@ -92,7 +92,20 @@ if [[ ! -f /etc/nginx/certs/iot-dashboard.crt ]]; then
   chmod 600 /etc/nginx/certs/iot-dashboard.key
 fi
 
-echo "[8/8] Journal size cap"
+echo "[8/9] Securing app secrets and database file perms"
+# .env holds SECRET_KEY / ESP_TOKEN / DB URL — must not be world-readable.
+# iot_demo.db holds pbkdf2 password hashes — same story.
+APP_DIR="/home/${APP_USER}/IoT-Project/flask/flaskr"
+if [[ -f "${APP_DIR}/.env" ]]; then
+  chown "${APP_USER}:${APP_USER}" "${APP_DIR}/.env"
+  chmod 600 "${APP_DIR}/.env"
+fi
+if [[ -f "${APP_DIR}/iot_demo.db" ]]; then
+  chown "${APP_USER}:${APP_USER}" "${APP_DIR}/iot_demo.db"
+  chmod 600 "${APP_DIR}/iot_demo.db"
+fi
+
+echo "[9/9] Journal size cap"
 sed -i 's/^#\?SystemMaxUse=.*/SystemMaxUse=200M/' /etc/systemd/journald.conf
 systemctl restart systemd-journald
 
