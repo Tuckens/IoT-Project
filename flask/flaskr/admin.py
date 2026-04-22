@@ -98,6 +98,10 @@ def update_user(user_id):
                               "the acting admin's password"}
                 ), 403
             user.password_hash = generate_password_hash(new_password)
+            # Password rotated -> clear any pending lockout so the target
+            # can log in immediately with the new credentials.
+            user.failed_attempts = 0
+            user.lockout_until = None
 
         db.commit()
         return jsonify({

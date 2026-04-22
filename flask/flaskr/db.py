@@ -2,7 +2,8 @@ import os
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import create_engine, desc, Integer, Float, String, Column, DateTime
+from sqlalchemy import create_engine, desc, text
+from sqlalchemy import Integer, Float, String, Column, DateTime
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -13,6 +14,16 @@ db_URL = f"sqlite:///{os.path.join(_DB_DIR, 'iot_demo.db')}"
 
 engine = create_engine(db_URL)
 LocalSession = sessionmaker(bind=engine)
+
+# Lockout policy — resists distributed brute force even when attackers
+# rotate IPs so per-IP rate limits don't help. A single account takes at
+# most MAX_FAILED_ATTEMPTS bad passwords before being iced.
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION = timedelta(minutes=15)
+
+# Used to equalise timing when the username does not exist, to avoid a
+# "user-not-found returns in 0.1 ms, bad-password returns in 50 ms" leak.
+_TIMING_DUMMY_HASH = generate_password_hash('x' * 16)
 
 
 class Base(DeclarativeBase):
@@ -25,6 +36,8 @@ class User(Base):
     username = Column(String, unique=True)
     password_hash = Column(String)
     permissions = Column(String, default="user")
+    failed_attempts = Column(Integer, default=0)
+    lockout_until = Column(DateTime, nullable=True)
 
 
 class EventLogs(Base):
@@ -38,6 +51,32 @@ class EventLogs(Base):
 
 
 Base.metadata.create_all(engine)
+
+
+def _ensure_schema() -> None:
+    """SQLite ALTER TABLE migration for the lockout columns.
+
+    create_all() only creates missing tables; it does not add missing
+    columns to existing tables. We hand-roll the migration so upgrading
+    an existing deployment does not require dropping iot_demo.db.
+    """
+    with engine.begin() as conn:
+        existing = {
+            row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()
+        }
+        if 'failed_attempts' not in existing:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0"
+            ))
+            logger.info("schema: added users.failed_attempts")
+        if 'lockout_until' not in existing:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN lockout_until DATETIME"
+            ))
+            logger.info("schema: added users.lockout_until")
+
+
+_ensure_schema()
 
 
 def cleanup_old_logs(max_age_hours: int = 24) -> None:
@@ -137,9 +176,41 @@ def login(username: str, password: str) -> dict:
     db = LocalSession()
     try:
         user = db.query(User).filter(User.username == username).first()
-        # Constant-ish response to reduce username-enumeration leakage.
-        if not user or not check_password_hash(user.password_hash, password):
+        now = datetime.now()
+
+        if not user:
+            # Still run a hash to keep the branch timing indistinguishable
+            # from the "user exists, wrong password" case.
+            check_password_hash(_TIMING_DUMMY_HASH, password)
             return {"success": False, "error": "Invalid credentials", "status": 401}
+
+        # Account-level lockout — survives per-IP rotation (which defeats
+        # Flask-Limiter alone).
+        if user.lockout_until and user.lockout_until > now:
+            remaining = int((user.lockout_until - now).total_seconds())
+            return {
+                "success": False,
+                "error": f"Account locked. Try again in {remaining} s.",
+                "status": 429,
+            }
+
+        if not check_password_hash(user.password_hash, password):
+            user.failed_attempts = (user.failed_attempts or 0) + 1
+            if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                user.lockout_until = now + LOCKOUT_DURATION
+                user.failed_attempts = 0
+                logger.warning(
+                    "Account %r locked for %d min after %d failed attempts",
+                    user.username, int(LOCKOUT_DURATION.total_seconds() // 60),
+                    MAX_FAILED_ATTEMPTS,
+                )
+            db.commit()
+            return {"success": False, "error": "Invalid credentials", "status": 401}
+
+        # Successful login — reset counters.
+        user.failed_attempts = 0
+        user.lockout_until = None
+        db.commit()
 
         return {
             "success": True,
