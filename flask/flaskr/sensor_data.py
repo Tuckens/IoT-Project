@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, jsonify, current_app
 
 from db import log_sensor_data, record_camera_event, LocalSession, EventLogs
+from decorators import login_required
 
 logger = logging.getLogger(__name__)
 sensor_bp = Blueprint('sensor', __name__)
@@ -19,11 +20,13 @@ def _limiter():
 
 
 @sensor_bp.route('/')
+@login_required
 def index():
     return render_template('blog/index.html')
 
 
 @sensor_bp.route('/config', methods=['GET'])
+@login_required
 def get_config():
     return jsonify({
         "MOCK_SENSORS": current_app.config.get('MOCK_SENSORS', False),
@@ -32,6 +35,7 @@ def get_config():
 
 
 @sensor_bp.route('/sensor_data', methods=['GET'])
+@login_required
 def get_sensor_data():
     window = current_app.config.get('SENSOR_WINDOW_SECONDS', 60)
     try:
@@ -89,6 +93,7 @@ def get_sensor_data():
 
 
 @sensor_bp.route('/latest', methods=['GET'])
+@login_required
 def get_latest():
     if current_app.config.get('MOCK_SENSORS'):
         return jsonify({
@@ -122,7 +127,11 @@ def get_latest():
 
 
 @sensor_bp.route('/sensor_data', methods=['POST'])
+@login_required
 def post_sensor_data():
+    # Protected — the unauthenticated ESP ingest is /sensor below. Without
+    # login_required here, anyone on the Wi-Fi could stuff arbitrary strings
+    # into the description column, which the admin panel later renders.
     data = request.get_json(silent=True) or {}
 
     event_type = data.get('event_type')
@@ -199,6 +208,7 @@ def receive_esp_data():
 
 
 @sensor_bp.route('/record', methods=['POST'])
+@login_required
 def record():
     data = request.get_json(silent=True) or {}
     filename = data.get('filename')

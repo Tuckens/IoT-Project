@@ -13,6 +13,8 @@ import time
 import threading
 import atexit
 
+from decorators import login_required
+
 camera_bp = Blueprint('camera', __name__)
 
 # ── Lazy singleton with a lock to prevent race conditions ──
@@ -139,6 +141,7 @@ def _generate_frames():
 
 
 @camera_bp.route('/stream')
+@login_required
 def video_stream():
     """MJPEG stream: /api/camera/stream"""
     return Response(
@@ -148,6 +151,7 @@ def video_stream():
 
 
 @camera_bp.route('/snapshot')
+@login_required
 def snapshot():
     """Single JPEG snapshot: /api/camera/snapshot"""
     camera = _get_camera()
@@ -160,6 +164,7 @@ def snapshot():
 
 
 @camera_bp.route('/status')
+@login_required
 def status():
     """Camera availability probe: /api/camera/status"""
     _get_camera()  # trigger detection if not yet done
