@@ -1,8 +1,10 @@
 import os
 from flask import Flask, redirect, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 
 from config import Config
 from auth import auth_bp
@@ -13,9 +15,25 @@ from admin import admin_bp
 from db import cleanup_old_logs
 
 
+csrf = CSRFProtect()
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Behind Nginx: trust a single proxy hop for scheme and client IP so that
+    #   - session cookies can be flagged Secure based on the real scheme;
+    #   - Flask-Limiter sees the real client IP instead of 127.0.0.1 (which
+    #     would collapse everyone to the same bucket);
+    #   - Flask-WTF's Referer check validates against the real origin.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    csrf.init_app(app)
+    # The SSL-strict referer check breaks behind a self-signed proxy with
+    # Host != X-Forwarded-Host in some clients; the session cookie's
+    # SameSite=Lax + Secure already blocks cross-site POST.
+    app.config.setdefault('WTF_CSRF_SSL_STRICT', False)
 
     limiter = Limiter(
         get_remote_address,
@@ -30,6 +48,11 @@ def create_app() -> Flask:
     app.register_blueprint(sensor_bp, url_prefix='/api/blog')
     app.register_blueprint(camera_bp, url_prefix='/api/camera')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    # The ESP32 ingest has no browser session; its auth is the shared token.
+    # Requiring a CSRF token there would break the ESP firmware and miss the
+    # point of the pedagogical flaw. Everything else still requires a token.
+    csrf.exempt(app.view_functions['sensor.receive_esp_data'])
 
     @app.after_request
     def _security_headers(response):
