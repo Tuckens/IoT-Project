@@ -82,17 +82,79 @@ net.ipv4.tcp_syncookies = 1
 EOF
 sysctl -p /etc/sysctl.d/99-iot-hardening.conf
 
-echo "[7/8] Self-signed TLS certificate for the dashboard"
+echo "[7/9] Private CA + server cert for the dashboard"
 mkdir -p /etc/nginx/certs
-if [[ ! -f /etc/nginx/certs/iot-dashboard.crt ]]; then
-  openssl req -x509 -nodes -days 730 -newkey rsa:2048 \
-    -keyout /etc/nginx/certs/iot-dashboard.key \
-    -out /etc/nginx/certs/iot-dashboard.crt \
-    -subj "/CN=bpem.local"
-  chmod 600 /etc/nginx/certs/iot-dashboard.key
+CA_CRT=/etc/nginx/certs/ca.crt
+CA_KEY=/etc/nginx/certs/ca.key
+SRV_CRT=/etc/nginx/certs/iot-dashboard.crt
+SRV_KEY=/etc/nginx/certs/iot-dashboard.key
+
+# Why: a plain self-signed cert gives a browser warning the admin learns to
+# click through — and can't visually distinguish from an attacker's self-signed
+# cert during an ARP-spoof MITM. Instead we generate a local CA, sign the
+# server cert with it, and have the admin import the CA once on their laptop.
+# After that, legitimate bpem.local is green-lock, anything else throws a
+# hard error that cannot be bypassed without user action. The CA private key
+# stays on the Pi at chmod 600 — never leaves it.
+
+if [[ ! -f "${CA_CRT}" ]]; then
+  openssl req -x509 -nodes -days 3650 -newkey rsa:4096 \
+    -keyout "${CA_KEY}" -out "${CA_CRT}" \
+    -subj "/CN=BPEM IoT Demo CA/O=BPEM/C=BE" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign"
+  chmod 600 "${CA_KEY}"
+  echo "  -> New CA generated at ${CA_CRT}"
+  NEED_SERVER_CERT=1
 fi
 
-echo "[8/9] Securing app secrets and database file perms"
+# Regenerate the server cert if it is missing OR not signed by our CA (e.g.
+# the old standalone self-signed one from a previous deploy).
+if [[ ! -f "${SRV_CRT}" ]] || ! openssl verify -CAfile "${CA_CRT}" "${SRV_CRT}" >/dev/null 2>&1; then
+  NEED_SERVER_CERT=1
+fi
+
+if [[ "${NEED_SERVER_CERT:-0}" == "1" ]]; then
+  CNF=$(mktemp)
+  cat > "${CNF}" <<'EOF'
+[req]
+distinguished_name = req_distinguished_name
+req_extensions     = v3_req
+prompt             = no
+
+[req_distinguished_name]
+CN = bpem.local
+O  = BPEM
+C  = BE
+
+[v3_req]
+keyUsage         = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName   = @alt_names
+
+[alt_names]
+DNS.1 = bpem.local
+DNS.2 = localhost
+IP.1  = 127.0.0.1
+EOF
+  CSR=$(mktemp --suffix=.csr)
+  openssl req -new -nodes -newkey rsa:2048 \
+    -keyout "${SRV_KEY}" -out "${CSR}" -config "${CNF}"
+  openssl x509 -req -in "${CSR}" \
+    -CA "${CA_CRT}" -CAkey "${CA_KEY}" -CAcreateserial \
+    -out "${SRV_CRT}" -days 730 \
+    -extensions v3_req -extfile "${CNF}"
+  rm -f "${CSR}" "${CNF}"
+  chmod 600 "${SRV_KEY}"
+  echo "  -> Server cert issued and signed by the CA."
+fi
+
+# Expose the CA cert to the app user so they can scp it to their laptop.
+install -o "${APP_USER}" -g "${APP_USER}" -m 0644 \
+  "${CA_CRT}" "/home/${APP_USER}/bpem-ca.crt"
+echo "  -> CA copied to /home/${APP_USER}/bpem-ca.crt (ready to scp)."
+
+echo "[8/10] Securing app secrets and database file perms"
 # .env holds SECRET_KEY / ESP_TOKEN / DB URL — must not be world-readable.
 # iot_demo.db holds pbkdf2 password hashes — same story.
 APP_DIR="/home/${APP_USER}/IoT-Project/flask/flaskr"
@@ -105,12 +167,20 @@ if [[ -f "${APP_DIR}/iot_demo.db" ]]; then
   chmod 600 "${APP_DIR}/iot_demo.db"
 fi
 
-echo "[9/9] Journal size cap"
+echo "[9/10] Journal size cap"
 sed -i 's/^#\?SystemMaxUse=.*/SystemMaxUse=200M/' /etc/systemd/journald.conf
 systemctl restart systemd-journald
 
+echo "[10/10] Restart nginx if it was already loaded"
+systemctl is-active --quiet nginx && systemctl reload nginx || true
+
 echo ""
 echo "Done. Remaining manual steps:"
+echo "  * Import /home/${APP_USER}/bpem-ca.crt on every machine that will"
+echo "    log in to the dashboard. See deploy/README.md § 'Trusting the CA'."
+echo "    After import, https://bpem.local/ shows the green padlock."
+echo "    An ARP-spoof MITM presenting a different cert will now fail with"
+echo "    NET::ERR_CERT_AUTHORITY_INVALID and cannot be clicked through."
 echo "  * Copy deploy/nginx-iot.conf to /etc/nginx/sites-available/iot-dashboard"
 echo "    then: ln -sf ../sites-available/iot-dashboard /etc/nginx/sites-enabled/"
 echo "          rm -f /etc/nginx/sites-enabled/default && nginx -t && systemctl reload nginx"

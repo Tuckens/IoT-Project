@@ -75,10 +75,62 @@ substituted or the paths in `WorkingDirectory`, `EnvironmentFile` or
 sudo journalctl -xeu iot-dashboard -n 50 --no-pager
 ```
 
+## Trusting the CA (one-time, per laptop)
+
+The hardening script now runs its own mini-CA. The server cert for
+`bpem.local` is signed by that CA. If you import the CA cert on the
+laptops that will log into the dashboard, you get a green padlock **and**
+an ARP-spoofing attacker's forged cert causes a hard `NET::ERR_CERT_AUTHORITY_INVALID`
+that cannot be clicked through — there is no "Continue anyway" button
+once a site is backed by a trusted CA that the attacker does not control.
+
+Grab the CA cert from the Pi first:
+
+```bash
+scp boss@bpem.local:/home/boss/bpem-ca.crt .
+```
+
+### Windows (Chrome / Edge / IE — anything using the Windows trust store)
+
+```powershell
+# Run in an elevated PowerShell
+Import-Certificate -FilePath .\bpem-ca.crt `
+    -CertStoreLocation Cert:\LocalMachine\Root
+```
+Or GUI: double-click `bpem-ca.crt` → *Install Certificate* → *Local
+Machine* → *Place all certificates in the following store* → *Trusted
+Root Certification Authorities*.
+
+### Firefox (has its own trust store)
+`about:preferences#privacy` → scroll to **Certificates** → *View
+Certificates…* → *Authorities* tab → *Import…* → select
+`bpem-ca.crt` → tick "Trust this CA to identify websites".
+
+### macOS
+```bash
+sudo security add-trusted-cert -d -r trustRoot \
+    -k /Library/Keychains/System.keychain bpem-ca.crt
+```
+
+### Linux (Debian/Ubuntu/Raspberry Pi OS family)
+```bash
+sudo cp bpem-ca.crt /usr/local/share/ca-certificates/bpem-ca.crt
+sudo update-ca-certificates
+```
+
+### Android
+Settings → Security → Encryption & credentials → Install a certificate
+→ CA certificate → pick `bpem-ca.crt`.
+
+After import, visit `https://bpem.local/` — the padlock is green. Close
+and reopen the browser if the old warning sticks (cached). **Do not**
+import the CA on attendee laptops that will attack you; they should see
+the warning (that is the normal outside view).
+
 ## Wi-Fi caveats on the shared network
-- Other attendees can sniff all plaintext traffic and ARP-spoof you. The
-  dashboard (on HTTPS) is immune to passive sniffing but will trigger a
-  self-signed-cert warning on first visit — this is expected.
+- Other attendees can sniff all plaintext traffic and ARP-spoof you.
+  The dashboard (on HTTPS, trusted via the CA) is immune to both
+  passive sniffing and active MITM.
 - The ESP ingest stays on HTTP by design — that is the flaw you want
   discovered.
 - Rotate `ESP_TOKEN` before the demo. It will be captured; rotating it
