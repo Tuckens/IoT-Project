@@ -51,6 +51,12 @@ def api_register():
     if request.method == 'GET':
         return render_template('auth/register.html')
 
+    limiter = _limiter()
+    if limiter is not None:
+        # 5 accounts per minute per IP — defeats trivial flooding and
+        # username-enumeration via timing on a shared Wi-Fi.
+        limiter.limit("5 per minute")(lambda: None)()
+
     data = request.get_json(silent=True) or {}
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
@@ -96,7 +102,9 @@ def api_delete():
     return jsonify({"error": result["error"]}), status
 
 
-@auth_bp.route('/logout', methods=['POST', 'GET'])
+@auth_bp.route('/logout', methods=['POST'])
 def api_logout():
+    # POST only — a GET logout is trivially CSRFable via <img src=...>,
+    # letting any page on the LAN log a user out.
     session.clear()
     return redirect(url_for('auth.api_login'))
