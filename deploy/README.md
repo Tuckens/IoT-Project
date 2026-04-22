@@ -8,6 +8,34 @@ by the ESP32 to `POST /api/blog/sensor`.** Everything else must be hardened.
 - `POST /api/blog/sensor` — served over plain HTTP, token in the JSON body.
   Documented in `esp-code/esp-code.ino` and `flask/flaskr/sensor_data.py`.
 
+## Feature set
+
+- **Regular users** log in and see only the live dashboard (camera stream,
+  temperature/motion charts, latest values).
+- **Admins** get an additional panel at `/admin/` with four tabs:
+  - **Users** — rename, change role, change password (requires the admin's
+    own password as confirmation), delete. The last remaining admin cannot
+    be deleted or demoted.
+  - **System Logs** — the 100 most recent `EventLogs` rows.
+  - **Recordings** — list of camera clips with play (streaming with HTTP
+    range support), download, and delete actions. A live indicator shows
+    when a clip is currently being written.
+  - **Settings** — temperature alarm threshold. Values clamped server-side
+    to `[-20, 60] °C`.
+- **Automatic recordings**: the ESP ingest endpoint
+  `POST /api/blog/sensor` (the pedagogical-flaw route) triggers clips:
+  - any `pir=1` starts a 5-second `motion` clip; repeated motion extends
+    it;
+  - any `temp < threshold` starts a `temperature` clip that keeps running
+    until the reading recovers, with a hard 10-minute ceiling to protect
+    the SD card.
+  - Clips are stored under `flask/flaskr/recordings/` (outside `/static`,
+    chmod `0700`, owned by the app user) as H.264-in-MP4 via
+    `picamera2` + `ffmpeg`.
+  - Only admin-authenticated requests can read or delete them. Filenames
+    are server-generated and gated by a strict regex on every filesystem
+    call — no path traversal possible.
+
 ## What is hardened
 - Dashboard, admin panel, auth → behind Nginx + self-signed TLS on 443.
 - HTTP → HTTPS redirect, except for the ESP ingest URL.

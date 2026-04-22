@@ -25,7 +25,8 @@ echo "Hardening for user: ${APP_USER}"
 echo "[1/8] Updating packages"
 apt-get update
 apt-get -y upgrade
-apt-get -y install ufw fail2ban unattended-upgrades nginx python3-venv python3-pip
+apt-get -y install ufw fail2ban unattended-upgrades nginx \
+                   python3-venv python3-pip ffmpeg
 
 echo "[2/8] Enabling unattended security upgrades"
 dpkg-reconfigure -plow unattended-upgrades || true
@@ -154,7 +155,7 @@ install -o "${APP_USER}" -g "${APP_USER}" -m 0644 \
   "${CA_CRT}" "/home/${APP_USER}/bpem-ca.crt"
 echo "  -> CA copied to /home/${APP_USER}/bpem-ca.crt (ready to scp)."
 
-echo "[8/10] Securing app secrets and database file perms"
+echo "[8/10] Securing app secrets, database, and recordings dir perms"
 # .env holds SECRET_KEY / ESP_TOKEN / DB URL — must not be world-readable.
 # iot_demo.db holds pbkdf2 password hashes — same story.
 APP_DIR="/home/${APP_USER}/IoT-Project/flask/flaskr"
@@ -166,6 +167,9 @@ if [[ -f "${APP_DIR}/iot_demo.db" ]]; then
   chown "${APP_USER}:${APP_USER}" "${APP_DIR}/iot_demo.db"
   chmod 600 "${APP_DIR}/iot_demo.db"
 fi
+# recordings/ holds video of the room — strictly admin-readable, never
+# exposed by Nginx (it lives outside /static).
+install -d -o "${APP_USER}" -g "${APP_USER}" -m 0700 "${APP_DIR}/recordings"
 
 echo "[9/10] Journal size cap"
 sed -i 's/^#\?SystemMaxUse=.*/SystemMaxUse=200M/' /etc/systemd/journald.conf
