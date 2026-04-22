@@ -1,26 +1,59 @@
 """Raspberry Pi Camera MJPEG streaming blueprint.
 
-Streams the Pi camera feed as Motion-JPEG over HTTP so the dashboard
-can display it in a standard <img> tag.
+The camera exposes two concurrent outputs:
+
+- A permanent hardware-accelerated MJPEGEncoder that writes each JPEG
+  frame into a thread-safe single-frame buffer (_StreamingOutput). The
+  /api/camera/stream handler reads from that buffer, so it does zero
+  Python-side JPEG encoding and never calls capture_file() in its hot
+  path.
+- An on-demand H264Encoder attached by recording.py while a clip is
+  being written. Both encoders consume frames from the same camera
+  stream but run in picamera2's own C threads, so they do not compete
+  for the Python GIL.
 
 Requirements (on the Pi):
-    sudo apt install -y python3-picamera2 python3-libcamera
+    sudo apt install -y python3-picamera2 python3-libcamera ffmpeg
 """
 
 from flask import Blueprint, Response, jsonify
 import io
+import logging
 import time
 import threading
 import atexit
 
 from decorators import login_required
 
+logger = logging.getLogger(__name__)
 camera_bp = Blueprint('camera', __name__)
 
 # ── Lazy singleton with a lock to prevent race conditions ──
 _camera = None
 _camera_available = None   # None = untested, True / False = cached result
 _camera_lock = threading.Lock()
+_mjpeg_encoder = None
+_mjpeg_attached = False
+
+
+class _StreamingOutput(io.BufferedIOBase):
+    """Latest-frame buffer for MJPEG. picamera2's MJPEGEncoder writes each
+    completed JPEG frame as a single ``write`` call; we overwrite the
+    previous frame and notify waiters so consumers always see the freshest
+    one."""
+
+    def __init__(self):
+        self.frame = None
+        self.condition = threading.Condition()
+
+    def write(self, buf):
+        with self.condition:
+            self.frame = buf
+            self.condition.notify_all()
+        return len(buf)
+
+
+_streaming_output = _StreamingOutput()
 
 
 def _release_camera():
@@ -65,9 +98,12 @@ def _get_camera():
                 from picamera2 import Picamera2
 
                 cam = Picamera2()
+                # YUV420 is the Pi camera's native format and what the
+                # hardware JPEG/H264 encoders expect natively; it removes
+                # an RGB conversion step and frees CPU cycles.
                 cam.configure(
                     cam.create_video_configuration(
-                        main={"size": (640, 480), "format": "RGB888"}
+                        main={"size": (640, 480), "format": "YUV420"}
                     )
                 )
                 cam.start()
@@ -75,7 +111,8 @@ def _get_camera():
 
                 _camera = cam
                 _camera_available = True
-                print("[camera] Camera initialised successfully.")
+                _attach_mjpeg_encoder(cam)
+                logger.info("Camera initialised successfully.")
                 return _camera
 
             except Exception as e:
@@ -118,14 +155,38 @@ def _make_placeholder_frame():
         )
 
 
+def _attach_mjpeg_encoder(cam) -> None:
+    """Attach the permanent MJPEG encoder that drives /api/camera/stream.
+
+    Idempotent: safe to call more than once (e.g. if the camera is closed
+    and reopened). Failures fall back to the old capture_file() path via
+    the frame generator below.
+    """
+    global _mjpeg_encoder, _mjpeg_attached
+    if _mjpeg_attached:
+        return
+    try:
+        from picamera2.encoders import MJPEGEncoder
+        from picamera2.outputs import FileOutput
+        # Bitrate is a quality target; the hardware JPEG encoder will
+        # produce roughly this much data per second at 640x480@~20fps.
+        _mjpeg_encoder = MJPEGEncoder(bitrate=4_000_000)
+        cam.start_encoder(_mjpeg_encoder, FileOutput(_streaming_output), name="main")
+        _mjpeg_attached = True
+        logger.info("MJPEG encoder attached (hardware JPEG).")
+    except Exception:
+        logger.exception("failed to attach MJPEG encoder — falling back to capture_file")
+
+
 MAX_CONSECUTIVE_ERRORS = 10
 
 
 def _generate_frames():
-    """Yield MJPEG frames. Returns (closes the response) if the camera
-    stays in an error state for too long, so the browser's <img onerror>
-    retry logic can reconnect instead of spinning forever on a dead
-    stream."""
+    """Yield MJPEG frames from the shared _streaming_output buffer, so the
+    hot path does zero Python-side encoding. Returns (closes the HTTP
+    response) if the camera produces nothing for MAX_CONSECUTIVE_ERRORS
+    consecutive attempts, letting the browser's <img onerror> reconnect
+    instead of spinning forever."""
     camera = _get_camera()
     if camera is None:
         frame = _make_placeholder_frame()
@@ -134,23 +195,44 @@ def _generate_frames():
             time.sleep(1)
         return
 
+    # Fallback path: if MJPEGEncoder failed to attach (e.g. picamera2 too
+    # old), use the original capture_file loop. Slower but still works.
+    if not _mjpeg_attached:
+        errors = 0
+        while True:
+            try:
+                buf = io.BytesIO()
+                camera.capture_file(buf, format='jpeg')
+                frame = buf.getvalue()
+                errors = 0
+            except Exception:
+                errors += 1
+                logger.warning("capture_file error %d/%d", errors, MAX_CONSECUTIVE_ERRORS)
+                if errors >= MAX_CONSECUTIVE_ERRORS:
+                    return
+                time.sleep(0.5)
+                continue
+            yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            time.sleep(0.05)
+        return
+
+    # Fast path: hardware-encoded MJPEG via the permanent encoder.
     errors = 0
+    last_frame = None
     while True:
-        try:
-            buf = io.BytesIO()
-            camera.capture_file(buf, format='jpeg')
-            frame = buf.getvalue()
-            errors = 0
-        except Exception as e:
+        with _streaming_output.condition:
+            # wait() returns True on notify, False on timeout.
+            got = _streaming_output.condition.wait(timeout=2.0)
+            frame = _streaming_output.frame
+        if not got or frame is None or frame is last_frame:
             errors += 1
-            print(f"[camera] Frame capture error ({errors}/{MAX_CONSECUTIVE_ERRORS}): {e}")
             if errors >= MAX_CONSECUTIVE_ERRORS:
-                print("[camera] Too many consecutive errors — closing stream")
+                logger.warning("MJPEG stream stalled — closing")
                 return
-            time.sleep(0.5)
             continue
+        errors = 0
+        last_frame = frame
         yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-        time.sleep(0.05)  # ~20 fps
 
 
 @camera_bp.route('/stream')

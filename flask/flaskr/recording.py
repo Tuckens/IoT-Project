@@ -119,12 +119,13 @@ class RecordingManager:
 
             encoder = H264Encoder(bitrate=3_000_000)
             output = FfmpegOutput(path)
-            # start_encoder / stop_encoder attach only the encoder. We
-            # deliberately avoid start_recording / stop_recording here: those
-            # helpers call cam.start()/cam.stop() which would tear down the
-            # camera that the MJPEG stream is also reading from, leaving the
-            # dashboard frozen on the last frame and then unable to reopen.
-            cam.start_encoder(encoder, output)
+            # start_encoder / stop_encoder only attach/detach the encoder.
+            # We explicitly avoid start_recording / stop_recording: those
+            # wrappers call cam.start()/cam.stop() which would tear down
+            # the shared camera and the MJPEG encoder that feeds the live
+            # stream. Instead we add a second encoder alongside the
+            # permanent MJPEG one; picamera2 dispatches each frame to both.
+            cam.start_encoder(encoder, output, name="main")
         except Exception:
             logger.exception("failed to start encoder")
             return
@@ -168,7 +169,10 @@ class RecordingManager:
             cam = _get_camera()
             if cam is not None:
                 try:
-                    cam.stop_encoder()
+                    # Target the H264 encoder only. Omitting the argument
+                    # would stop every encoder, including the permanent
+                    # MJPEG one that drives the live stream.
+                    cam.stop_encoder(active["_encoder_ref"])
                 except Exception:
                     logger.exception("cam.stop_encoder failed")
         except Exception:
