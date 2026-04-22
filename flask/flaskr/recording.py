@@ -119,9 +119,14 @@ class RecordingManager:
 
             encoder = H264Encoder(bitrate=3_000_000)
             output = FfmpegOutput(path)
-            cam.start_recording(encoder, output)
+            # start_encoder / stop_encoder attach only the encoder. We
+            # deliberately avoid start_recording / stop_recording here: those
+            # helpers call cam.start()/cam.stop() which would tear down the
+            # camera that the MJPEG stream is also reading from, leaving the
+            # dashboard frozen on the last frame and then unable to reopen.
+            cam.start_encoder(encoder, output)
         except Exception:
-            logger.exception("failed to start recording")
+            logger.exception("failed to start encoder")
             return
 
         try:
@@ -129,12 +134,11 @@ class RecordingManager:
         except Exception:
             logger.exception("failed to insert recording row; stopping encoder")
             try:
-                cam.stop_recording()
+                cam.stop_encoder()
             except Exception:
                 pass
             return
 
-        # Enforce the hard ceiling for temperature-triggered (open-ended) clips.
         hard_stop_at = now + MAX_RECORDING_DURATION
         effective_stop_at = stop_at if stop_at else hard_stop_at
 
@@ -146,6 +150,10 @@ class RecordingManager:
             "started_at": now,
             "stop_at": effective_stop_at,
             "hard_stop_at": hard_stop_at,
+            # Keep strong references so the encoder/ffmpeg output objects
+            # are not garbage-collected while the recording is running.
+            "_encoder_ref": encoder,
+            "_output_ref": output,
         }
         logger.info("recording started: %s (%s)", filename, trigger)
 
@@ -160,9 +168,9 @@ class RecordingManager:
             cam = _get_camera()
             if cam is not None:
                 try:
-                    cam.stop_recording()
+                    cam.stop_encoder()
                 except Exception:
-                    logger.exception("cam.stop_recording failed")
+                    logger.exception("cam.stop_encoder failed")
         except Exception:
             logger.exception("stop: camera import failed")
 

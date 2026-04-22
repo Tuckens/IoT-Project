@@ -118,26 +118,39 @@ def _make_placeholder_frame():
         )
 
 
+MAX_CONSECUTIVE_ERRORS = 10
+
+
 def _generate_frames():
-    """Yield MJPEG frames."""
+    """Yield MJPEG frames. Returns (closes the response) if the camera
+    stays in an error state for too long, so the browser's <img onerror>
+    retry logic can reconnect instead of spinning forever on a dead
+    stream."""
     camera = _get_camera()
     if camera is None:
         frame = _make_placeholder_frame()
-        while True:
+        for _ in range(60):  # ~1 min of placeholder, then let the client retry
             yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
             time.sleep(1)
-    else:
-        while True:
-            try:
-                buf = io.BytesIO()
-                camera.capture_file(buf, format='jpeg')
-                frame = buf.getvalue()
-            except Exception as e:
-                print(f"[camera] Frame capture error: {e}")
-                time.sleep(0.5)
-                continue
-            yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            time.sleep(0.05)  # ~20 fps
+        return
+
+    errors = 0
+    while True:
+        try:
+            buf = io.BytesIO()
+            camera.capture_file(buf, format='jpeg')
+            frame = buf.getvalue()
+            errors = 0
+        except Exception as e:
+            errors += 1
+            print(f"[camera] Frame capture error ({errors}/{MAX_CONSECUTIVE_ERRORS}): {e}")
+            if errors >= MAX_CONSECUTIVE_ERRORS:
+                print("[camera] Too many consecutive errors — closing stream")
+                return
+            time.sleep(0.5)
+            continue
+        yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        time.sleep(0.05)  # ~20 fps
 
 
 @camera_bp.route('/stream')
