@@ -1,8 +1,12 @@
 # /etc/systemd/system/iot-dashboard.service
 #
-# Runs the Flask dashboard under a dedicated non-root user via gunicorn.
-#   sudo useradd --system --home /home/pi/IoT-Project --shell /usr/sbin/nologin iotapp
-#   sudo chown -R iotapp:iotapp /home/pi/IoT-Project/flask/flaskr
+# Runs the Flask dashboard under the user that owns the project via gunicorn.
+# Before installing, replace __USER__ and __PROJECT_DIR__ below — for example:
+#   sudo sed -e 's|__USER__|boss|g' \
+#            -e 's|__PROJECT_DIR__|/home/boss/IoT-Project|g' \
+#            deploy/iot-dashboard.service \
+#       | sudo tee /etc/systemd/system/iot-dashboard.service
+#   sudo systemctl daemon-reload
 #   sudo systemctl enable --now iot-dashboard
 
 [Unit]
@@ -12,11 +16,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=iotapp
-Group=iotapp
-WorkingDirectory=/home/pi/IoT-Project/flask/flaskr
-EnvironmentFile=/home/pi/IoT-Project/flask/flaskr/.env
-ExecStart=/home/pi/IoT-Project/.venv/bin/gunicorn \
+User=__USER__
+Group=__USER__
+WorkingDirectory=__PROJECT_DIR__/flask/flaskr
+EnvironmentFile=__PROJECT_DIR__/flask/flaskr/.env
+ExecStart=__PROJECT_DIR__/.venv/bin/gunicorn \
           --bind 127.0.0.1:5000 \
           --workers 2 \
           --access-logfile - \
@@ -24,12 +28,13 @@ ExecStart=/home/pi/IoT-Project/.venv/bin/gunicorn \
 Restart=on-failure
 RestartSec=3
 
-# Hardening
+# Hardening — ProtectHome=read-only so the service can read its own code
+# under /home/<user>/ while being blocked from writing anywhere else there.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/home/pi/IoT-Project/flask/flaskr
+ProtectHome=read-only
+ReadWritePaths=__PROJECT_DIR__/flask/flaskr
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

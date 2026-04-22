@@ -16,42 +16,63 @@ by the ESP32 to `POST /api/blog/sensor`.** Everything else must be hardened.
   login and on the ESP endpoint, strict payload validation, no exception
   strings returned to clients, security headers, admin routes guarded by
   session (never by body-supplied identity).
-- Systemd runs the app as a dedicated `iotapp` user with `ProtectSystem=strict`.
+- Systemd runs the app under the project-owner user with `ProtectSystem=strict`
+  and `ProtectHome=read-only`.
 - UFW allows only 22/80/443. SSH password auth disabled. Fail2ban on.
   Unattended security upgrades.
 
 ## One-time setup on the Pi
 
+The commands below assume you cloned the repo as user `boss` into
+`/home/boss/IoT-Project`. Replace both values with yours — `whoami` and
+`pwd` will tell you what to put.
+
 ```bash
-sudo bash deploy/harden-pi.sh
+# 0. Adjust these two to match your Pi
+USER_NAME=$(whoami)
+PROJECT_DIR=$HOME/IoT-Project
 
-# Python env
-python3 -m venv /home/pi/IoT-Project/.venv
-/home/pi/IoT-Project/.venv/bin/pip install -r /home/pi/IoT-Project/requirements.txt
-/home/pi/IoT-Project/.venv/bin/pip install gunicorn flask flask-limiter apscheduler sqlalchemy werkzeug
+# 1. Firewall / SSH / nginx / user hardening
+sudo bash $PROJECT_DIR/deploy/harden-pi.sh
 
-# Nginx site
-sudo cp deploy/nginx-iot.conf /etc/nginx/sites-available/iot-dashboard
-sudo ln -s ../sites-available/iot-dashboard /etc/nginx/sites-enabled/
+# 2. Python venv + dependencies
+python3 -m venv $PROJECT_DIR/.venv
+$PROJECT_DIR/.venv/bin/pip install \
+    flask flask-limiter sqlalchemy werkzeug apscheduler gunicorn
+
+# 3. Nginx site
+sudo cp $PROJECT_DIR/deploy/nginx-iot.conf /etc/nginx/sites-available/iot-dashboard
+sudo ln -sf ../sites-available/iot-dashboard /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 
-# App env
-sudo -u iotapp cp flask/flaskr/.env.example flask/flaskr/.env
-sudo -u iotapp nano flask/flaskr/.env    # fill SECRET_KEY, ESP_TOKEN, SESSION_COOKIE_SECURE=1
+# 4. App env (SECRET_KEY, ESP_TOKEN, SESSION_COOKIE_SECURE=1)
+cp $PROJECT_DIR/flask/flaskr/.env.example $PROJECT_DIR/flask/flaskr/.env
+nano $PROJECT_DIR/flask/flaskr/.env
 
-# Admin bootstrap
-cd flask/flaskr
-sudo -u iotapp env \
-  BOOTSTRAP_ADMIN_USERNAME=admin \
-  BOOTSTRAP_ADMIN_PASSWORD='choose-a-strong-one' \
-  /home/pi/IoT-Project/.venv/bin/python db.py bootstrap-admin
+# 5. Bootstrap the admin user
+cd $PROJECT_DIR/flask/flaskr
+BOOTSTRAP_ADMIN_USERNAME=admin \
+BOOTSTRAP_ADMIN_PASSWORD='choose-a-strong-one' \
+$PROJECT_DIR/.venv/bin/python db.py bootstrap-admin
 
-# Service
-sudo cp deploy/iot-dashboard.service /etc/systemd/system/
+# 6. systemd service — substitute the placeholders before installing
+sudo sed -e "s|__USER__|${USER_NAME}|g" \
+         -e "s|__PROJECT_DIR__|${PROJECT_DIR}|g" \
+         $PROJECT_DIR/deploy/iot-dashboard.service \
+    | sudo tee /etc/systemd/system/iot-dashboard.service > /dev/null
+
 sudo systemctl daemon-reload
 sudo systemctl enable --now iot-dashboard
 sudo systemctl status iot-dashboard
+```
+
+If the service fails with `Result: resources`, the placeholders were not
+substituted or the paths in `WorkingDirectory`, `EnvironmentFile` or
+`ReadWritePaths` do not exist on disk. Check with:
+
+```bash
+sudo journalctl -xeu iot-dashboard -n 50 --no-pager
 ```
 
 ## Wi-Fi caveats on the shared network
