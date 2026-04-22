@@ -1,25 +1,19 @@
-from sqlalchemy import create_engine, desc
-from sqlalchemy import Integer, Float, String, Column
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm import DeclarativeBase
-from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import DateTime
-from sqlalchemy.sql import func
-from datetime import datetime
 import os
-from sqlalchemy import desc
+import logging
 from datetime import datetime, timedelta
 
+from sqlalchemy import create_engine, desc, Integer, Float, String, Column, DateTime
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from werkzeug.security import generate_password_hash, check_password_hash
+
+logger = logging.getLogger(__name__)
 
 _DB_DIR = os.path.dirname(os.path.abspath(__file__))
 db_URL = f"sqlite:///{os.path.join(_DB_DIR, 'iot_demo.db')}"
 
 engine = create_engine(db_URL)
-
 LocalSession = sessionmaker(bind=engine)
 
-
-# DATABASES - GONNA BE SEPARATE FILE
 
 class Base(DeclarativeBase):
     pass
@@ -44,193 +38,208 @@ class EventLogs(Base):
 
 
 Base.metadata.create_all(engine)
-# CRUD LOGIC
 
-def cleanup_old_logs(max_age_hours=24):
+
+def cleanup_old_logs(max_age_hours: int = 24) -> None:
     db = LocalSession()
     try:
         cutoff = datetime.now() - timedelta(hours=max_age_hours)
         deleted = db.query(EventLogs).filter(EventLogs.timestamp < cutoff).delete()
         db.commit()
-        print(f"Cleanup: deleted {deleted} old log(s)")
-    except Exception as e:
+        logger.info("cleanup: deleted %d old log(s)", deleted)
+    except Exception:
         db.rollback()
-        print(f"Cleanup error: {e}")
+        logger.exception("cleanup_old_logs failed")
     finally:
         db.close()
 
-def create_user(username, password):
-    db = LocalSession()
 
+def create_user(username: str, password: str) -> dict:
+    db = LocalSession()
     try:
-        existing_user = db.query(User).filter_by(username=username).first()
-        if existing_user:
-            print(f"User '{username}' already exists")
+        if db.query(User).filter_by(username=username).first():
             return {"success": False, "error": "User already exists", "status": 409}
 
-        hashed_password = generate_password_hash(password)
-        new_user = User(username=username, password_hash=hashed_password)
-
+        new_user = User(username=username, password_hash=generate_password_hash(password))
         db.add(new_user)
         db.commit()
         return {"success": True, "message": "User created successfully", "status": 201}
-
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return {"success": False, "error": str(e), "status": 500}
-
+        logger.exception("create_user failed")
+        return {"success": False, "error": "Internal error", "status": 500}
     finally:
         db.close()
 
 
-def delete_user(target_username, requester_username):
+def delete_user(target_username: str, requester_username: str) -> dict:
     db = LocalSession()
-
     try:
-        target_user = db.query(User).filter(
-            User.username == target_username).first()
+        target_user = db.query(User).filter(User.username == target_username).first()
         if not target_user:
-            return {"success": False, "error": "The user doesn't exists", "status": 404}
-
-        requester = db.query(User).filter(
-            User.username == requester_username).first()
-        if not requester:
-            return {"success": False, "error": "Wrong requester", "status": 422}
-
-        elif "Admin" not in requester.permissions:
-            return {"success": False, "error": "No admin permissions", "status": 403}
-
-        else:
-
-            db.delete(target_user)
-            db.commit()
-            return {"success": True, "message": f"You deleted {target_user}", "status": 201}
-
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "error": str(e), "status": 400}
-
-    finally:
-        db.close()
-
-
-def promote_to_admin(target_username, requester_username):
-    db = LocalSession()
-
-    try:
-        target_user = db.query(User).filter(
-            User.username == target_username).first()
-        requester = db.query(User).filter(
-            User.username == requester_username).first()
-        if not target_user:
-            return {"success": False, "error": "No user found", "status": 404}
-
-        elif not requester:
-            return {"success": False, "error": "Nice try", "status": 400}
-        else:
-
-            target_user.permissions = "Admin"
-            db.commit()
-            return {"success": True, "message": f"{target_username} got promoted to an admin", "status": 200}
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "Error": {str(e)}, "status": 400}
-    finally:
-        db.close()
-
-# Authentification
-
-
-def login(username, pasword):
-    db = LocalSession()
-
-    try:
-        user = db.query(User).filter(User.username == username).first()
-        if not user:
             return {"success": False, "error": "User not found", "status": 404}
 
-        elif (check_password_hash(user.password_hash, pasword)):
-            print("logged")
-            return {
-                "success": True, 
-                "message": "Welcome", 
-                "status": 200,
-                "user_id": user.user_id,
-                "username": user.username,
-                "permissions": user.permissions
-            }
+        requester = db.query(User).filter(User.username == requester_username).first()
+        if not requester:
+            return {"success": False, "error": "Requester not found", "status": 401}
 
-        else:
-            return {"success": False, "error": "Wrong password", "status": 400}
+        if requester.permissions != 'Admin':
+            return {"success": False, "error": "Admin permission required", "status": 403}
 
-    except Exception as e:
+        deleted_name = target_user.username
+        db.delete(target_user)
+        db.commit()
+        return {"success": True, "message": f"Deleted user {deleted_name}", "status": 200}
+    except Exception:
         db.rollback()
-        return f"Error: {str(e)}"
+        logger.exception("delete_user failed")
+        return {"success": False, "error": "Internal error", "status": 500}
     finally:
         db.close()
 
 
-def log_sensor_data(event_type, description, val):
+def promote_to_admin(target_username: str, requester_username: str) -> dict:
     db = LocalSession()
     try:
-        new_log = EventLogs(eventtype=event_type,
-                            description=description, value=val)
+        requester = db.query(User).filter(User.username == requester_username).first()
+        if not requester:
+            return {"success": False, "error": "Requester not found", "status": 401}
+        if requester.permissions != 'Admin':
+            return {"success": False, "error": "Admin permission required", "status": 403}
+
+        target_user = db.query(User).filter(User.username == target_username).first()
+        if not target_user:
+            return {"success": False, "error": "User not found", "status": 404}
+
+        target_user.permissions = "Admin"
+        db.commit()
+        return {"success": True, "message": f"{target_username} promoted to Admin", "status": 200}
+    except Exception:
+        db.rollback()
+        logger.exception("promote_to_admin failed")
+        return {"success": False, "error": "Internal error", "status": 500}
+    finally:
+        db.close()
+
+
+def login(username: str, password: str) -> dict:
+    db = LocalSession()
+    try:
+        user = db.query(User).filter(User.username == username).first()
+        # Constant-ish response to reduce username-enumeration leakage.
+        if not user or not check_password_hash(user.password_hash, password):
+            return {"success": False, "error": "Invalid credentials", "status": 401}
+
+        return {
+            "success": True,
+            "message": "Welcome",
+            "status": 200,
+            "user_id": user.user_id,
+            "username": user.username,
+            "permissions": user.permissions,
+        }
+    except Exception:
+        db.rollback()
+        logger.exception("login failed")
+        return {"success": False, "error": "Internal error", "status": 500}
+    finally:
+        db.close()
+
+
+def log_sensor_data(event_type: str, description: str, val: float) -> dict:
+    db = LocalSession()
+    try:
+        new_log = EventLogs(eventtype=event_type, description=description, value=val)
         db.add(new_log)
         db.commit()
         return {"success": True, "message": "log uploaded", "status": 200}
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return {"success": False, "error": str(e), "status": 400}
+        logger.exception("log_sensor_data failed")
+        return {"success": False, "error": "Internal error", "status": 500}
     finally:
         db.close()
 
 
-def record_camera_event(filename):
+def record_camera_event(filename: str) -> dict:
+    # Basic filename sanitation — prevent traversal from the raw JSON field.
+    safe = os.path.basename(filename)
+    if safe != filename or not safe:
+        return {"success": False, "error": "Invalid filename", "status": 400}
+
     db = LocalSession()
     try:
-        file_path = os.path.join("static/recordings", filename)
-        new_recording = EventLogs(eventtype="Recording", description=filename,
-                                  value=os.path.getsize(f"/home/pi/flaskr/{file_path}"))
-
+        file_path = os.path.join("static/recordings", safe)
+        abs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_path)
+        size = os.path.getsize(abs_path) if os.path.exists(abs_path) else 0
+        new_recording = EventLogs(eventtype="Recording", description=safe, value=size)
         db.add(new_recording)
         db.commit()
         return {"success": True, "message": "Recording saved", "status": 200}
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return {"success": False, "error": "Exception", "status": 400}
+        logger.exception("record_camera_event failed")
+        return {"success": False, "error": "Internal error", "status": 500}
     finally:
         db.close()
 
 
-def get_recent_readings(limit=20):
+def get_recent_readings(limit: int = 20) -> dict:
     db = LocalSession()
     try:
-        readings = db.query(EventLogs)\
-                     .order_by(desc(EventLogs.timestamp))\
-                     .limit(limit)\
-                     .all()
-
+        readings = (
+            db.query(EventLogs)
+            .order_by(desc(EventLogs.timestamp))
+            .limit(limit)
+            .all()
+        )
         readings.reverse()
-        chart_data = {
+        return {
             "labels": [r.timestamp.strftime("%H:%M:%S") for r in readings],
             "values": [r.value for r in readings],
-            "count": len(readings)
+            "count": len(readings),
         }
-        return chart_data
-    except Exception as e:
-        print(f"Chart Data Error: {e}")
-        return {"labels": [], "values": [], "error": str(e)}
+    except Exception:
+        logger.exception("get_recent_readings failed")
+        return {"labels": [], "values": [], "count": 0}
     finally:
         db.close()
 
 
-# TESTING
-if __name__ == "__main__":
+def _create_initial_admin() -> None:
+    """One-off CLI helper: python db.py bootstrap-admin."""
+    username = os.environ.get('BOOTSTRAP_ADMIN_USERNAME')
+    password = os.environ.get('BOOTSTRAP_ADMIN_PASSWORD')
+    if not username or not password:
+        raise RuntimeError(
+            "Set BOOTSTRAP_ADMIN_USERNAME and BOOTSTRAP_ADMIN_PASSWORD "
+            "in the environment before running bootstrap-admin."
+        )
+    if len(password) < 8:
+        raise RuntimeError("BOOTSTRAP_ADMIN_PASSWORD must be at least 8 characters.")
+
     db = LocalSession()
-    existing_admin = db.query(User).filter(User.username == "Admin").first()
-    if not existing_admin:
-        Admin = User(username="Admin", password_hash=generate_password_hash(
-            "Admin"), permissions="Admin")
-        db.add(Admin)
+    try:
+        existing = db.query(User).filter(User.username == username).first()
+        if existing:
+            print(f"Admin user {username!r} already exists — nothing to do.")
+            return
+        admin = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            permissions="Admin",
+        )
+        db.add(admin)
         db.commit()
-    db.close()
+        print(f"Created admin user {username!r}.")
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "bootstrap-admin":
+        _create_initial_admin()
+    else:
+        print("Usage: BOOTSTRAP_ADMIN_USERNAME=... BOOTSTRAP_ADMIN_PASSWORD=... "
+              "python db.py bootstrap-admin")

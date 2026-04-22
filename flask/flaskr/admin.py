@@ -1,10 +1,17 @@
-from flask import Blueprint, render_template, request, jsonify
-from db import LocalSession, User, EventLogs
+import logging
+
+from flask import Blueprint, render_template, request, jsonify, session, current_app
 from sqlalchemy import desc
 from werkzeug.security import generate_password_hash
+
+from db import LocalSession, User, EventLogs
 from decorators import admin_required
 
+logger = logging.getLogger(__name__)
 admin_bp = Blueprint('admin', __name__)
+
+ALLOWED_PERMISSIONS = {'user', 'Admin'}
+
 
 @admin_bp.before_request
 @admin_required
@@ -14,64 +21,81 @@ def restrict_admin():
 
 @admin_bp.route('/')
 def admin_panel():
-    """Serve the admin dashboard page."""
     return render_template('admin/index.html')
 
 
 @admin_bp.route('/users', methods=['GET'])
 def get_users():
-    """Return a JSON list of all users."""
     db = LocalSession()
     try:
         users = db.query(User).all()
         user_list = [
-            {
-                "user_id": u.user_id,
-                "username": u.username,
-                "permissions": u.permissions
-            }
+            {"user_id": u.user_id, "username": u.username, "permissions": u.permissions}
             for u in users
         ]
         return jsonify({"users": user_list})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("get_users failed")
+        return jsonify({"error": "Internal error"}), 500
     finally:
         db.close()
 
 
 @admin_bp.route('/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
-    """Update user information (username, password, permissions)."""
+    data = request.get_json(silent=True) or {}
+    current_user_id = session.get('user_id')
+    min_len = current_app.config.get('PASSWORD_MIN_LENGTH', 8)
+
     db = LocalSession()
     try:
-        data = request.get_json()
-
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        if 'username' in data and data['username'].strip():
-            user.username = data['username'].strip()
-        if 'permissions' in data and data['permissions'].strip():
-            user.permissions = data['permissions'].strip()
-        if 'password' in data and data['password'].strip():
-            user.password_hash = generate_password_hash(data['password'].strip())
+        if 'username' in data:
+            new_username = (data.get('username') or '').strip()
+            if not (3 <= len(new_username) <= 64):
+                return jsonify({"error": "username must be 3–64 characters"}), 400
+            if new_username != user.username:
+                exists = db.query(User).filter(User.username == new_username).first()
+                if exists:
+                    return jsonify({"error": "Username already in use"}), 409
+                user.username = new_username
+
+        if 'permissions' in data:
+            new_perm = (data.get('permissions') or '').strip()
+            if new_perm not in ALLOWED_PERMISSIONS:
+                return jsonify({"error": "Invalid permissions value"}), 400
+            # Prevent an admin from stripping their own admin rights and
+            # locking everyone out.
+            if user.user_id == current_user_id and new_perm != 'Admin':
+                return jsonify({"error": "You cannot demote yourself"}), 400
+            user.permissions = new_perm
+
+        if 'password' in data and data.get('password'):
+            new_password = data['password']
+            if len(new_password) < min_len:
+                return jsonify(
+                    {"error": f"password must be at least {min_len} characters"}
+                ), 400
+            user.password_hash = generate_password_hash(new_password)
 
         db.commit()
         return jsonify({
             "success": True,
             "message": f"User '{user.username}' updated successfully"
         })
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        logger.exception("update_user failed")
+        return jsonify({"error": "Internal error"}), 500
     finally:
         db.close()
 
 
 @admin_bp.route('/logs', methods=['GET'])
 def get_logs():
-    """Return the last 100 event logs from the database."""
     db = LocalSession()
     try:
         logs = (
@@ -87,12 +111,13 @@ def get_logs():
                 "eventtype": log.eventtype,
                 "description": log.description,
                 "value": log.value,
-                "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else None
+                "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else None,
             }
             for log in logs
         ]
         return jsonify({"logs": log_list})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("get_logs failed")
+        return jsonify({"error": "Internal error"}), 500
     finally:
         db.close()
