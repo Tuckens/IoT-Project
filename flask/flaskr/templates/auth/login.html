@@ -135,6 +135,7 @@
             }
 
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
+            // TODO: kill /api/v1 once the mobile app finishes migrating to /api/auth
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {

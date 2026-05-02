@@ -12,6 +12,7 @@ from blog import blog_bp
 from sensor_data import sensor_bp
 from camera import camera_bp
 from admin import admin_bp
+from honeypot import honeypot_bp
 from db import cleanup_old_logs, cleanup_old_recordings
 
 
@@ -56,11 +57,15 @@ def create_app() -> Flask:
     app.register_blueprint(sensor_bp, url_prefix='/api/blog')
     app.register_blueprint(camera_bp, url_prefix='/api/camera')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(honeypot_bp, url_prefix='/api/v1')
 
     # The ESP32 ingest has no browser session; its auth is the shared token.
     # Requiring a CSRF token there would break the ESP firmware and miss the
     # point of the pedagogical flaw. Everything else still requires a token.
     csrf.exempt(app.view_functions['sensor.receive_esp_data'])
+    # The /api/v1 honeypot mimics a sloppy legacy API; CSRF on it would
+    # break the illusion. See HONEYPOT.md.
+    csrf.exempt(honeypot_bp)
 
     @app.after_request
     def _security_headers(response):
