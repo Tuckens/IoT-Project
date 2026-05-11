@@ -31,6 +31,12 @@ ExecStart=__PROJECT_DIR__/.venv/bin/gunicorn \
 Restart=on-failure
 RestartSec=3
 
+# MJPEG streams are long-lived sockets, and each open browser tab plus its
+# cache-busting reconnects holds an FD on the gunicorn side until TCP times
+# them out. The systemd default (1024) saturates within a few clients and
+# the worker dies with EMFILE on accept(). 16k leaves comfortable headroom.
+LimitNOFILE=16384
+
 # Hardening — ProtectHome=read-only so the service can read its own code
 # under /home/<user>/ while being blocked from writing anywhere else there.
 NoNewPrivileges=true
