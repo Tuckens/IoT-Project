@@ -1,137 +1,205 @@
-#include  <Adafruit_BMP280.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <DHT.h>
+#include <mbedtls/md.h>
 #include "creds.h"
 
-#define DEBUG_MODE    //Comment out to supress debug info in Serial
-//#define NOWIFI        //Comment out when using RaspberryPI
+#define DEBUG_MODE // Comment to mute Serial debug output
+// #define NOWIFI   // Comment when using with the Raspberry Pi
 
-#define LED 2           //Status LED ->built-in
-#define ERR 14          //Error LED -> D5
-#define PIR 13          //HC-SR501 -> D7
+#define PIR 33
 
-String pi_hostname = "bpem.local";  
+#define DHTPIN 32
+#define DHTTYPE DHT22
 
+#define DHT_RETRY_DELAY 2500
+#define DHT_REINIT_AFTER 5
 
-
-Adafruit_BMP280 bmp;
+String pi_hostname = "bpem.local";
+DHT dht(DHTPIN, DHTTYPE);
 
 IPAddress serverIP;
 
+// Compute HMAC-SHA256(key, message) and write the lowercase hex digest
+// into out_hex (must hold 65 bytes: 64 hex chars + NUL). mbedtls is part
+// of the standard ESP32 Arduino core — no extra library to install.
+void compute_hmac_sha256_hex(const char *key, const char *msg, char *out_hex)
+{
+  unsigned char hmac[32];
+  mbedtls_md_context_t ctx;
+  const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
 
+  mbedtls_md_init(&ctx);
+  mbedtls_md_setup(&ctx, info, 1 /* hmac */);
+  mbedtls_md_hmac_starts(&ctx, (const unsigned char *)key, strlen(key));
+  mbedtls_md_hmac_update(&ctx, (const unsigned char *)msg, strlen(msg));
+  mbedtls_md_hmac_finish(&ctx, hmac);
+  mbedtls_md_free(&ctx);
+
+  for (int i = 0; i < 32; i++)
+  {
+    sprintf(out_hex + i * 2, "%02x", hmac[i]);
+  }
+  out_hex[64] = '\0';
+}
+
+void readDHTBlocking(float &temperature, float &humidity)
+{
+  unsigned int failCount = 0;
+
+  while (true)
+  {
+    temperature = dht.readTemperature();
+    humidity = dht.readHumidity();
+
+    if (!isnan(temperature) && !isnan(humidity))
+    {
+      if (failCount > 0)
+      {
+#ifdef DEBUG_MODE
+        Serial.print("AM2302 recovered after ");
+        Serial.print(failCount);
+        Serial.println(" failed attempt(s)");
+#endif
+      }
+      return;
+    }
+
+    failCount++;
+#ifdef DEBUG_MODE
+    Serial.print("Failed to read from AM2302! (attempt ");
+    Serial.print(failCount);
+    Serial.println(")");
+#endif
+
+    if (failCount % DHT_REINIT_AFTER == 0)
+    {
+#ifdef DEBUG_MODE
+      Serial.println("Re-initializing AM2302...");
+#endif
+      dht.begin();
+    }
+
+    delay(DHT_RETRY_DELAY);
+  }
+}
 
 void setup()
 {
-  Serial.begin(9600);
-  pinMode(LED,OUTPUT);
-  pinMode(ERR,OUTPUT);
-  pinMode(PIR,INPUT);
+  Serial.begin(115200);
+  pinMode(PIR, INPUT);
 
 /*---------------------------WIFI SETUP---------------------------*/
-  WiFi.begin(ssid, password);
-
 #ifdef DEBUG_MODE
   Serial.print("Connecting to ");
   Serial.print(ssid);
 #endif
+
 #ifndef NOWIFI
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+#ifdef DEBUG_MODE
     Serial.print(".");
+#endif
+    delay(500);
   }
 #endif
+
+#ifdef DEBUG_MODE
   Serial.println("\nConnected!");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
-/*-----------------------END OF WIFI SETUP------------------------*/
+#endif
+  /*-----------------------END OF WIFI SETUP------------------------*/
 
-
-/*---------------------------BMP280 SETUP---------------------------*/
-
-  if(bmp.begin(BMP280_ADDRESS_ALT))
-  {
-    Serial.print("\nBMP CONNECTED\n");
-
-    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,       // Operating Mode
-                    Adafruit_BMP280::SAMPLING_X2,       // Temp. oversampling
-                    Adafruit_BMP280::SAMPLING_NONE,     // Pressure oversampling
-                    Adafruit_BMP280::FILTER_X16,        // Filtering
-                    Adafruit_BMP280::STANDBY_MS_500);   // Standby time
-  }
-  else
-      digitalWrite(ERR,HIGH);
-
-
-/*-----------------------END OF BMP280 SETUP------------------------*/
-
-
+  /*---------------------------AM2302 SETUP---------------------------*/
+  dht.begin();
+  delay(2000);
+#ifdef DEBUG_MODE
+  Serial.println("AM2302 (DHT22) initialized");
+#endif
+  /*-----------------------END OF AM2302 SETUP-----------------------*/
 }
 
-
-
-unsigned int count=0;   //mssg ID
+unsigned int count = 0;
 
 WiFiClient wifi;
 HTTPClient http;
+char buff[200] = "";
+char payload[200] = "";
+char signature[65] = "";
 
 void loop()
 {
+  float temperature, humidity;
+  readDHTBlocking(temperature, humidity);
 
 #ifdef DEBUG_MODE
   Serial.print("Temperature: ");
-  Serial.print(bmp.readTemperature());
-  Serial.print(" Motion: ");
+  Serial.print(temperature);
+  Serial.print(" C  Humidity: ");
+  Serial.print(humidity);
+  Serial.print(" %  Motion: ");
   Serial.println(digitalRead(PIR));
 #endif
-  /*---------------------------mDNS RESOLUTION---------------------------*/
-  
-  
-  while(!WiFi.hostByName(pi_hostname.c_str(),serverIP)||serverIP.toString() == "0.0.0.0")
+
+/*---------------------------mDNS RESOLUTION---------------------------*/
+#ifndef NOWIFI
+  while (!WiFi.hostByName(pi_hostname.c_str(), serverIP) || serverIP.toString() == "0.0.0.0")
   {
+#ifdef DEBUG_MODE
     Serial.println("DNS failed, retrying...");
+#endif
     delay(1000);
   }
 
-  #ifdef DEBUG_MODE
+#ifdef DEBUG_MODE
   Serial.print("Resolved Raspberry Pi IP: ");
   Serial.println(serverIP.toString());
-  #endif
+#endif
+#endif
 /*-----------------------END OF mDNS RESOLUTION------------------------*/
 
+/*---------------------------HTTP CONNECTION---------------------------*/
 #ifndef NOWIFI
-  char buff[128]="";
-
   snprintf(buff, sizeof(buff), "http://%s/api/blog/sensor", serverIP.toString().c_str());
-  
-  #ifdef DEBUG_MODE
+
+#ifdef DEBUG_MODE
   Serial.print("Connecting to ");
   Serial.println(buff);
-  #endif
-  
-  http.begin(wifi,buff);
-  http.addHeader("Content-Type","application/json");
+#endif
 
-  // Build JSON payload in a separate buffer so we don't overwrite the URL
-  char payload[128]="";
-  snprintf(payload,sizeof(payload),"{\"id\":%d,\"temp\":%.2f,\"pir\":%d,\"user\":\"esp2866\",\"token\":\"secretpass\"}",
-                                count,bmp.readTemperature(),digitalRead(PIR));
-  #ifdef DEBUG_MODE
+  // Build the payload (no secret inside it anymore).
+  snprintf(payload, sizeof(payload),
+           "{\"id\":%d,\"temp\":%.2f,\"hum\":%.2f,\"pir\":%d,\"user\":\"esp32\"}",
+           count, temperature, humidity, digitalRead(PIR));
+
+  // Sign it with the shared HMAC key. The signature goes in a header,
+  // not in the body, so the body bytes that the server hashes are
+  // bit-identical to what we hashed here.
+  compute_hmac_sha256_hex(hmac_key, payload, signature);
+
+  http.begin(wifi, buff);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-ESP-Signature", signature);
+
+#ifdef DEBUG_MODE
   Serial.println(payload);
-  #endif
+  Serial.print("X-ESP-Signature: ");
+  Serial.println(signature);
+#endif
 
-  int httpResponseCode = http.POST((const uint8_t*)payload,strlen(payload));
+  int httpResponseCode = http.POST((uint8_t *)payload, strlen(payload));
+#ifdef DEBUG_MODE
   Serial.print("POST: ");
   Serial.println(httpResponseCode);
-
+#endif
   http.end();
 #endif
-/*-----------------------END OF HTTP CONNECTION------------------------*/
-
+  /*-----------------------END OF HTTP CONNECTION------------------------*/
 
   count++;
 
-  digitalWrite(LED,HIGH);
-  delay(250);
-  digitalWrite(LED,LOW);
-
+  delay(5000);
 }

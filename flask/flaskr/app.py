@@ -1,92 +1,111 @@
-from flask import Flask, redirect, url_for, render_template
+import os
+from flask import Flask, redirect, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
+from apscheduler.schedulers.background import BackgroundScheduler
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
+
 from config import Config
 from auth import auth_bp
 from blog import blog_bp
 from sensor_data import sensor_bp
 from camera import camera_bp
 from admin import admin_bp
-import os
-import sqlite3
-from flask import request, jsonify
-
-app = Flask(__name__)
-app.config.from_object(Config)
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'iot_demo.db')
+from honeypot import honeypot_bp
+from db import cleanup_old_logs, cleanup_old_recordings
 
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+csrf = CSRFProtect()
 
 
-def init_db():
-    with get_db_connection() as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS sensor_data (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                message_id INTEGER,
-                temperature REAL,
-                motion INTEGER,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config.from_object(Config)
+
+    # Trust N proxy hops for scheme / client IP / host:
+    #   - 1 when the browser hits the Pi's own nginx directly (bpem.local);
+    #   - 2 when the browser goes through an additional public reverse
+    #     proxy in front (e.g. bpem.vdrfinances.be → Pi's nginx → gunicorn).
+    # Configurable via PROXY_HOPS so the same code can run in both modes
+    # without relaxing trust unnecessarily.
+    proxy_hops = int(os.environ.get('PROXY_HOPS', '1'))
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=proxy_hops,
+        x_proto=proxy_hops,
+        x_host=proxy_hops,
+    )
+
+    csrf.init_app(app)
+    # Flask-WTF's init_app already setdefault()s WTF_CSRF_SSL_STRICT=True, so
+    # a later setdefault is a no-op — we must assign directly. We keep the
+    # Referer check ON (see Referrer-Policy below); this line just documents
+    # that we rely on it rather than turning it off.
+    app.config['WTF_CSRF_SSL_STRICT'] = True
+
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=["200 per minute"],
+        storage_uri="memory://",
+    )
+    app.extensions['limiter'] = limiter
+
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(blog_bp, url_prefix='/blog')
+    app.register_blueprint(sensor_bp, url_prefix='/api/blog')
+    app.register_blueprint(camera_bp, url_prefix='/api/camera')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(honeypot_bp, url_prefix='/api/v1')
+
+    # The ESP32 ingest has no browser session; its auth is the shared token.
+    # Requiring a CSRF token there would break the ESP firmware and miss the
+    # point of the pedagogical flaw. Everything else still requires a token.
+    csrf.exempt(app.view_functions['sensor.receive_esp_data'])
+    # The /api/v1 honeypot mimics a sloppy legacy API; CSRF on it would
+    # break the illusion. See HONEYPOT.md.
+    csrf.exempt(honeypot_bp)
+
+    @app.after_request
+    def _security_headers(response):
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        # same-origin: strip Referer for cross-site navigations (no leaking
+        # our URLs to third parties) but keep it for our own POSTs, which
+        # Flask-WTF's CSRF layer needs to validate.
+        response.headers.setdefault('Referrer-Policy', 'same-origin')
+        response.headers.setdefault(
+            'Content-Security-Policy',
+            "default-src 'self'; "
+            "img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "connect-src 'self'"
+        )
+        if app.config.get('SESSION_COOKIE_SECURE'):
+            response.headers.setdefault(
+                'Strict-Transport-Security',
+                'max-age=31536000; includeSubDomains'
             )
-        ''')
-        conn.commit()
+        return response
+
+    @app.route('/')
+    def home():
+        return redirect(url_for('auth.api_login'))
+
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(cleanup_old_logs, 'interval', hours=1)
+    scheduler.add_job(cleanup_old_recordings, 'interval', hours=1)
+    scheduler.start()
+
+    return app
 
 
-app.register_blueprint(auth_bp, url_prefix='/api/auth')
-app.register_blueprint(blog_bp, url_prefix='/blog')
-app.register_blueprint(sensor_bp, url_prefix='/api/blog')
-app.register_blueprint(camera_bp, url_prefix='/api/camera')
-app.register_blueprint(admin_bp, url_prefix='/admin')
-
-
-@app.route('/', methods=['GET', 'POST'])
-def home():
-    if request.method == 'POST':
-        data = request.get_json()
-
-        if data and data.get('token') == 'secretpass':
-            conn = sqlite3.connect('iot_demo.db')
-            c = conn.cursor()
-            c.execute('''
-                INSERT INTO sensor_data (message_id, temperature, motion)
-                VALUES (?, ?, ?)
-            ''', (data.get('id'), data.get('temp'), data.get('pir')))
-            conn.commit()
-            conn.close()
-
-            return jsonify({"status": "success", "message": "Data saved"}), 201
-
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
-
-    user_agent = request.headers.get('User-Agent', '')
-    if 'ESP8266' in user_agent:
-        return jsonify({"command": "none"}), 200
-
-    return redirect(url_for('auth.api_login'))
-
-
-@app.route('/sensor_data', methods=['GET'])
-def get_sensor_data():
-    conn = get_db_connection()
-    rows = conn.execute(
-        "SELECT timestamp, temperature, motion FROM sensor_data ORDER BY timestamp DESC LIMIT 15").fetchall()
-    conn.close()
-
-    temperature_data = [{"timestamp": r['timestamp'][-8:],
-                         "value": r['temperature']} for r in reversed(rows)]
-    motion_data = [{"timestamp": r['timestamp'][-8:],
-                    "value": r['motion']} for r in reversed(rows)]
-
-    return jsonify({
-        "temperature": temperature_data,
-        "motion": motion_data
-    })
+app = create_app()
 
 
 if __name__ == '__main__':
-    init_db()  # On prépare la DB avant de lancer le serveur
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    debug = os.environ.get('FLASK_DEBUG', '0') == '1'
+    app.run(host='0.0.0.0', port=5000, debug=debug)

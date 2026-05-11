@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Créer un Compte - Inscription</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Create account</title>
     <style>
         /* Base styling et centrage, cohérent avec la page de connexion */
         body {
@@ -133,13 +134,13 @@
             
             <div class="input-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" required placeholder="Choisissez un pseudo">
+                <input type="text" id="username" name="username" required placeholder="Choose a username">
             </div>
             
             
             <div class="input-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="Créez un mot de passe fort">
+                <input type="password" id="password" name="password" required placeholder="Choose a strong password (min 8 chars)">
             </div>
         
             <input type="submit" id="submit_register" value="Register">
@@ -166,10 +167,12 @@
 
         console.log(userData);
 
+        const csrf = document.querySelector('meta[name="csrf-token"]').content;
         const response = await fetch('/api/auth/register', {
             method : "POST",
             headers : {
-                'Content-Type' : 'application/json'
+                'Content-Type' : 'application/json',
+                'X-CSRFToken' : csrf
             },
             body : JSON.stringify(userData)
         });
@@ -179,13 +182,13 @@
         console.log(data);
 
         if (response.ok) {
-            alert("Succès ! " + (data.message || ""));
+            alert("Account created! " + (data.message || ""));
             setTimeout(function() {
               window.location.href =  "/api/auth/login";
             },500)
             document.getElementById('userForm').reset();
         } else {
-            alert("Erreur ! " + (data.error || ""));
+            alert("Error: " + (data.error || ""));
             document.getElementById('userForm').reset();
         }
 

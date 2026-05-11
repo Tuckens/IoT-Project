@@ -1,0 +1,62 @@
+# /etc/systemd/system/iot-dashboard.service
+#
+# Runs the Flask dashboard under the user that owns the project via gunicorn.
+# Before installing, replace __USER__ and __PROJECT_DIR__ below — for example:
+#   sudo sed -e 's|__USER__|boss|g' \
+#            -e 's|__PROJECT_DIR__|/home/boss/IoT-Project|g' \
+#            deploy/iot-dashboard.service \
+#       | sudo tee /etc/systemd/system/iot-dashboard.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now iot-dashboard
+
+[Unit]
+Description=IoT dashboard (Flask)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__PROJECT_DIR__/flask/flaskr
+EnvironmentFile=__PROJECT_DIR__/flask/flaskr/.env
+ExecStart=__PROJECT_DIR__/.venv/bin/gunicorn \
+          --bind 127.0.0.1:5000 \
+          --workers 1 \
+          --threads 4 \
+          --worker-class gthread \
+          --timeout 120 \
+          --access-logfile - \
+          app:app
+Restart=on-failure
+RestartSec=3
+
+# Hardening — ProtectHome=read-only so the service can read its own code
+# under /home/<user>/ while being blocked from writing anywhere else there.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__PROJECT_DIR__/flask/flaskr
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# A Flask/gunicorn app never needs any Linux capability.
+CapabilityBoundingSet=
+AmbientCapabilities=
+# Block anything not in the common web-service syscall set. @privileged and
+# @resources stay blocked (no raw sockets, no cgroup writes, etc.).
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
