@@ -104,39 +104,32 @@
 <body>
 
     <div class="login-container">
-        <h2>Welcome Back</h2>
+        <h2>Admin : Delete user</h2>
 
-        <form id="userForm" action="#" method="POST">
-
-            <div class="input-group">
-                <label for="username">Username or Email</label>
-                <input type="text" id="username" name="username" required placeholder="Enter your username">
-            </div>
+        <form id="deleteForm" action="#" method="POST">
 
             <div class="input-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="Enter your password">
+                <label for="target_user">Target User</label>
+                <input type="text" id="target_user" name="target_user" required placeholder="target_user">
             </div>
 
-            <button type="submit" class="login-btn">Log In</button>
+            <button type="submit" class="login-btn">delete him</button>
 
         </form>
 
-        <div class="extra-links">
-            &nbsp; <a href="{{ url_for('auth.api_register')}}">Create an Account</a>
-        </div>
     </div>
     <script>
-        document.getElementById('userForm').addEventListener('submit', async (e) => {
+        document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+
             e.preventDefault();
+
+
             const userData = {
-                username: document.getElementById('username').value,
-                password: document.getElementById('password').value
+                target_user: document.getElementById('target_user').value
             }
 
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
-            // TODO: kill /api/v1 once the mobile app finishes migrating to /api/auth
-            const response = await fetch('/api/auth/login', {
+            const response = await fetch('/api/auth/delete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -149,10 +142,6 @@
             console.log("Received response:", result);
             if (response.ok) {
                 alert("Succes : " + result.message);
-                setTimeout(function() {
-                    window.location.href = "/blog/";
-                }, 1500);
-                document.getElementById('userForm').reset();
 
             }
             else {

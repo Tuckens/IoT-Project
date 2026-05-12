@@ -1,0 +1,39 @@
+# Secrets & credentials
+esp-code/creds.h
+.env
+*.env
+flask/flaskr/.env
+
+# Databases (keep schema files, not data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDEs / OS / local tooling
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build artefacts
+dist/
+build/
+
+# Logs
+*.log
+
+# Certificates (self-signed, never commit)
+*.pem
+*.key
+*.crt
