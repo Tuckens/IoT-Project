@@ -6,14 +6,14 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
 
-from config import Config
-from auth import auth_bp
-from blog import blog_bp
-from sensor_data import sensor_bp
-from camera import camera_bp
-from admin import admin_bp
-from honeypot import honeypot_bp
-from db import cleanup_old_logs, cleanup_old_recordings
+from .config import Config
+from .auth import auth_bp
+from .blog import blog_bp
+from .sensor_data import sensor_bp
+from .camera import camera_bp
+from .admin import admin_bp
+from .honeypot import honeypot_bp
+from .db import cleanup_old_logs, cleanup_old_recordings
 
 
 csrf = CSRFProtect()

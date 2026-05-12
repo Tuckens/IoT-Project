@@ -2,8 +2,8 @@ import os
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import create_engine, desc, text
-from sqlalchemy import Integer, Float, String, Column, DateTime, Float
+from sqlalchemy import create_engine, desc, text, func
+from sqlalchemy import Integer, Float, String, Column, DateTime
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -54,6 +54,23 @@ class EventLogs(Base):
     description = Column(String)
     value = Column(Integer)
     timestamp = Column(DateTime, server_default=func.now())
+
+
+class Recording(Base):
+    __tablename__ = "recordings"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    filename = Column(String, unique=True, nullable=False)
+    trigger = Column(String, nullable=False)
+    started_at = Column(DateTime, nullable=False)
+    ended_at = Column(DateTime, nullable=True)
+    duration_s = Column(Float, nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=True)
 
 
 
@@ -112,13 +129,21 @@ def cleanup_old_recordings(max_age_days: int = 7, max_count: int = 100) -> None:
             victims.append(r)
 
         # Count-based sweep — keep the newest max_count, drop the rest.
-        surplus = (
-            db.query(Recording)
-            .filter(~Recording.id.in_([r.id for r in old_rows]) if old_rows else True)
-            .order_by(desc(Recording.started_at))
-            .offset(max_count)
-            .all()
-        )
+        if old_rows:
+            surplus = (
+                db.query(Recording)
+                .filter(~Recording.id.in_([r.id for r in old_rows]))
+                .order_by(desc(Recording.started_at))
+                .offset(max_count)
+                .all()
+            )
+        else:
+            surplus = (
+                db.query(Recording)
+                .order_by(desc(Recording.started_at))
+                .offset(max_count)
+                .all()
+            )
         for r in surplus:
             victims.append(r)
 
@@ -177,32 +202,33 @@ def create_user(username: str, password: str) -> dict:
 def delete_user(target_username: str, requester_username: str) -> dict:
     db = LocalSession()
     try:
-        target_user = db.query(User).filter(User.username == target_username).first()
-        if not target_user:
+        result = db.execute(text("SELECT user_id, permissions FROM users WHERE username = :u"), {"u": target_username}).first()
+        if result is None:
             return {"success": False, "error": "User not found", "status": 404}
+        target_id, target_perms = result
 
-        requester = db.query(User).filter(User.username == requester_username).first()
-        if not requester:
+        result = db.execute(text("SELECT user_id, permissions FROM users WHERE username = :u"), {"u": requester_username}).first()
+        if result is None:
             return {"success": False, "error": "Requester not found", "status": 401}
+        requester_id, requester_perms = result
 
-        if requester.permissions != 'Admin':
+        if requester_perms != 'Admin':
             return {"success": False, "error": "Admin permission required", "status": 403}
 
         # Refuse to delete the last admin — it locks everyone out of the admin
         # panel and forces a CLI recovery via db.py bootstrap-admin.
-        if target_user.permissions == 'Admin':
-            admin_count = db.query(User).filter(User.permissions == 'Admin').count()
-            if admin_count <= 1:
+        if target_perms == 'Admin':
+            admin_count = db.execute(text("SELECT COUNT(*) FROM users WHERE permissions = 'Admin'")).scalar()
+            if admin_count is not None and admin_count <= 1:
                 return {
                     "success": False,
                     "error": "Cannot delete the last remaining admin",
                     "status": 400,
                 }
 
-        deleted_name = target_user.username
-        db.delete(target_user)
+        db.execute(text("DELETE FROM users WHERE user_id = :id"), {"id": target_id})
         db.commit()
-        return {"success": True, "message": f"Deleted user {deleted_name}", "status": 200}
+        return {"success": True, "message": f"Deleted user {target_username}", "status": 200}
     except Exception:
         db.rollback()
         logger.exception("delete_user failed")
@@ -214,17 +240,20 @@ def delete_user(target_username: str, requester_username: str) -> dict:
 def promote_to_admin(target_username: str, requester_username: str) -> dict:
     db = LocalSession()
     try:
-        requester = db.query(User).filter(User.username == requester_username).first()
-        if not requester:
+        result = db.execute(text("SELECT user_id, permissions FROM users WHERE username = :u"), {"u": requester_username}).first()
+        if result is None:
             return {"success": False, "error": "Requester not found", "status": 401}
-        if requester.permissions != 'Admin':
+        requester_id, requester_perms = result
+        
+        if requester_perms != 'Admin':
             return {"success": False, "error": "Admin permission required", "status": 403}
 
-        target_user = db.query(User).filter(User.username == target_username).first()
-        if not target_user:
+        result = db.execute(text("SELECT user_id FROM users WHERE username = :u"), {"u": target_username}).first()
+        if result is None:
             return {"success": False, "error": "User not found", "status": 404}
+        target_id = result[0]
 
-        target_user.permissions = "Admin"
+        db.execute(text("UPDATE users SET permissions = :p WHERE user_id = :id"), {"p": "Admin", "id": target_id})
         db.commit()
         return {"success": True, "message": f"{target_username} promoted to Admin", "status": 200}
     except Exception:
@@ -238,51 +267,59 @@ def promote_to_admin(target_username: str, requester_username: str) -> dict:
 def login(username: str, password: str) -> dict:
     db = LocalSession()
     try:
-        user = db.query(User).filter(User.username == username).first()
+        result = db.execute(text("SELECT user_id, password_hash, lockout_until, failed_attempts FROM users WHERE username = :u"), {"u": username}).first()
         now = datetime.now()
 
-        if not user:
+        if result is None:
             # Still run a hash to keep the branch timing indistinguishable
             # from the "user exists, wrong password" case.
             check_password_hash(_TIMING_DUMMY_HASH, password)
             return {"success": False, "error": "Invalid credentials", "status": 401}
 
+        user_id, password_hash, lockout_until, failed_attempts = result
+
         # Account-level lockout — survives per-IP rotation (which defeats
         # Flask-Limiter alone).
-        if user.lockout_until and user.lockout_until > now:
-            remaining = int((user.lockout_until - now).total_seconds())
+        if lockout_until is not None and lockout_until > now:
+            remaining = int((lockout_until - now).total_seconds())
             return {
                 "success": False,
                 "error": f"Account locked. Try again in {remaining} s.",
                 "status": 429,
             }
 
-        if not check_password_hash(user.password_hash, password):
-            user.failed_attempts = (user.failed_attempts or 0) + 1
-            if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
-                user.lockout_until = now + LOCKOUT_DURATION
-                user.failed_attempts = 0
+        password_hash_str = password_hash if password_hash else ""
+        if not check_password_hash(password_hash_str, password):
+            failed_count = (failed_attempts or 0) + 1
+            if failed_count >= MAX_FAILED_ATTEMPTS:
+                db.execute(text("UPDATE users SET lockout_until = :t, failed_attempts = 0 WHERE user_id = :id"), {"t": now + LOCKOUT_DURATION, "id": user_id})
                 logger.warning(
                     "Account %r locked for %d min after %d failed attempts",
-                    user.username, int(LOCKOUT_DURATION.total_seconds() // 60),
+                    username, int(LOCKOUT_DURATION.total_seconds() // 60),
                     MAX_FAILED_ATTEMPTS,
                 )
+            else:
+                db.execute(text("UPDATE users SET failed_attempts = :f WHERE user_id = :id"), {"f": failed_count, "id": user_id})
             db.commit()
             return {"success": False, "error": "Invalid credentials", "status": 401}
 
         # Successful login — reset counters.
-        user.failed_attempts = 0
-        user.lockout_until = None
+        db.execute(text("UPDATE users SET failed_attempts = 0, lockout_until = NULL WHERE user_id = :id"), {"id": user_id})
         db.commit()
 
-        return {
-            "success": True,
-            "message": "Welcome",
-            "status": 200,
-            "user_id": user.user_id,
-            "username": user.username,
-            "permissions": user.permissions,
-        }
+        # Get updated user info
+        result = db.execute(text("SELECT user_id, username, permissions FROM users WHERE user_id = :id"), {"id": user_id}).first()
+        if result:
+            user_id, uname, perms = result
+            return {
+                "success": True,
+                "message": "Welcome",
+                "status": 200,
+                "user_id": user_id,
+                "username": uname,
+                "permissions": perms,
+            }
+        return {"success": True, "message": "Welcome", "status": 200}
     except Exception:
         db.rollback()
         logger.exception("login failed")
@@ -293,7 +330,7 @@ def login(username: str, password: str) -> dict:
 def log_sensor_data(device_id, event_type, description, val):
     db = LocalSession()
     try:
-        new_log = EventLogs(device = device_id, eventtype = event_type, description = description, value = val)
+        new_log = EventLogs(device_id = device_id, eventtype = event_type, description = description, value = val)
         db.add(new_log)
         db.commit()
         return {"success": True, "message": "log uploaded", "status": 200}
@@ -308,10 +345,10 @@ def log_sensor_data(device_id, event_type, description, val):
 def record_camera_event(filename):
     db = LocalSession()
     try:
-        file_path = os.path.join("static/recordings", safe)
+        file_path = os.path.join("static/recordings", filename)
         abs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_path)
         size = os.path.getsize(abs_path) if os.path.exists(abs_path) else 0
-        new_recording = EventLogs(eventtype="Recording", description=safe, value=size)
+        new_recording = EventLogs(eventtype="Recording", description=filename, value=size)
         db.add(new_recording)
         db.commit()
         return {"success": True, "message": "Recording saved", "status": 200}
@@ -338,16 +375,31 @@ def _valid_recording_filename(name: str) -> bool:
 def create_recording_row(filename: str, trigger: str) -> int:
     db = LocalSession()
     try:
-        rec = Recording(filename=filename, trigger=trigger, started_at=datetime.now())
-        db.add(rec)
+        db.execute(text("INSERT INTO recordings (filename, trigger, started_at) VALUES (:f, :t, :s)"), 
+                   {"f": filename, "t": trigger, "s": datetime.now()})
         db.commit()
-        return rec.id
+        result = db.execute(text("SELECT id FROM recordings WHERE filename = :f"), {"f": filename}).first()
+        return result[0] if result else -1
+    except Exception:
+        db.rollback()
+        return -1
+    finally:
+        db.close()
+
+
+def finalise_recording_row(rec_id: int, duration_s: float, size_bytes: int) -> None:
+    """Finalize a recording row with its duration and file size."""
+    db = LocalSession()
+    try:
+        db.execute(text("UPDATE recordings SET ended_at = :e, duration_s = :d, size_bytes = :s WHERE id = :id"), 
+                   {"e": datetime.now(), "d": duration_s, "s": size_bytes, "id": rec_id})
+        db.commit()
     finally:
         db.close()
 
 
 
-def get_recent_readings(limit=20):
+def get_recording_list(limit=20):
     db = LocalSession()
     try:
         rows = (
@@ -361,8 +413,8 @@ def get_recent_readings(limit=20):
                 "id": r.id,
                 "filename": r.filename,
                 "trigger": r.trigger,
-                "started_at": r.started_at.strftime("%Y-%m-%d %H:%M:%S") if r.started_at else None,
-                "ended_at": r.ended_at.strftime("%Y-%m-%d %H:%M:%S") if r.ended_at else None,
+                "started_at": r.started_at.strftime("%Y-%m-%d %H:%M:%S") if r.started_at is not None else None,
+                "ended_at": r.ended_at.strftime("%Y-%m-%d %H:%M:%S") if r.ended_at is not None else None,
                 "duration_s": r.duration_s,
                 "size_bytes": r.size_bytes,
                 "ready": r.ended_at is not None,
@@ -384,18 +436,19 @@ def get_recording(rec_id: int):
 def delete_recording(rec_id: int) -> dict:
     db = LocalSession()
     try:
-        rec = db.query(Recording).filter(Recording.id == rec_id).first()
-        if not rec:
+        result = db.execute(text("SELECT filename FROM recordings WHERE id = :id"), {"id": rec_id}).first()
+        if result is None:
             return {"success": False, "error": "Recording not found", "status": 404}
-        if not _valid_recording_filename(rec.filename):
+        rec_filename = result[0]
+        if not _valid_recording_filename(rec_filename):
             return {"success": False, "error": "Invalid filename on row", "status": 500}
-        path = os.path.join(RECORDINGS_DIR, rec.filename)
+        path = os.path.join(RECORDINGS_DIR, rec_filename)
         try:
             if os.path.exists(path):
                 os.remove(path)
         except OSError:
             logger.exception("failed to remove recording file")
-        db.delete(rec)
+        db.execute(text("DELETE FROM recordings WHERE id = :id"), {"id": rec_id})
         db.commit()
         return {"success": True, "message": "Recording deleted", "status": 200}
     except Exception:
@@ -409,8 +462,8 @@ def delete_recording(rec_id: int) -> dict:
 def get_setting(key: str, default=None):
     db = LocalSession()
     try:
-        s = db.query(AppSetting).filter(AppSetting.key == key).first()
-        return s.value if s is not None else default
+        result = db.execute(text("SELECT value FROM app_settings WHERE key = :k"), {"k": key}).first()
+        return result[0] if result else default
     finally:
         db.close()
 
@@ -420,9 +473,11 @@ def set_setting(key: str, value) -> None:
     try:
         s = db.query(AppSetting).filter(AppSetting.key == key).first()
         if s is None:
-            db.add(AppSetting(key=key, value=(None if value is None else str(value))))
+            new_value = None if value is None else str(value)
+            db.add(AppSetting(key=key, value=new_value))
         else:
-            s.value = None if value is None else str(value)
+            new_value = None if value is None else str(value)
+            db.execute(text("UPDATE app_settings SET value = :v WHERE key = :k"), {"v": new_value, "k": key})
         db.commit()
     except Exception:
         db.rollback()
@@ -455,20 +510,26 @@ def get_recent_readings(limit: int = 20) -> dict:
 
 # TESTING
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 3:
+        print("Usage: python db.py <username> <password>")
+        sys.exit(1)
+    username = sys.argv[1]
+    password = sys.argv[2]
     db = LocalSession()
     try:
         existing = db.query(User).filter(User.username == username).first()
-        if existing:
+        if existing is not None:
             print(f"Admin user {username!r} already exists — nothing to do.")
-            return
-        admin = User(
-            username=username,
-            password_hash=generate_password_hash(password),
-            permissions="Admin",
-        )
-        db.add(admin)
-        db.commit()
-        print(f"Created admin user {username!r}.")
+        else:
+            admin = User(
+                username=username,
+                password_hash=generate_password_hash(password),
+                permissions="Admin",
+            )
+            db.add(admin)
+            db.commit()
+            print(f"Created admin user {username!r}.")
     finally:
         db.close()
 

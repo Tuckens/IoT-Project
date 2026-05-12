@@ -24,13 +24,19 @@ import shutil
 import threading
 import time
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
+    H264Encoder: Any  # type: ignore[name-defined]
+    FfmpegOutput: Any  # type: ignore[name-defined]
 
 # Refuse to start a new recording below this many free bytes on the
 # recordings volume — ffmpeg would otherwise produce a zero-byte file
 # and leave an orphan DB row.
 MIN_FREE_DISK_BYTES = 500 * 1024 * 1024  # 500 MB
 
-from db import (
+from .db import (
     RECORDINGS_DIR,
     create_recording_row,
     finalise_recording_row,
@@ -49,12 +55,13 @@ def _filename(trigger: str, when: datetime) -> str:
     return f"{when.strftime('%Y%m%d-%H%M%S')}_{trigger}.mp4"
 
 
-def _temperature_threshold():
+def _temperature_threshold() -> float | None:
     v = get_setting("temperature_alarm_below")
-    if v is None or v == "":
+    if not v or v == "":
         return None
     try:
-        return float(v)
+        result = float(v)
+        return result
     except (TypeError, ValueError):
         return None
 
@@ -124,8 +131,12 @@ class RecordingManager:
             )
             return
 
+        cam = None
+        encoder = None
+        output = None
+        
         try:
-            from camera import _get_camera
+            from .camera import _get_camera
             cam = _get_camera()
             if cam is None:
                 logger.warning("cannot start %s recording: camera unavailable", trigger)
@@ -133,8 +144,12 @@ class RecordingManager:
 
             # picamera2 encoders are imported lazily so unit tests on a
             # non-Pi box do not need the library.
-            from picamera2.encoders import H264Encoder
-            from picamera2.outputs import FfmpegOutput
+            try:
+                from picamera2.encoders import H264Encoder  # type: ignore
+                from picamera2.outputs import FfmpegOutput  # type: ignore
+            except (ImportError, ModuleNotFoundError):
+                logger.exception("picamera2 not available; recording disabled")
+                return
 
             encoder = H264Encoder(bitrate=3_000_000)
             output = FfmpegOutput(path)
@@ -154,7 +169,8 @@ class RecordingManager:
         except Exception:
             logger.exception("failed to insert recording row; stopping encoder")
             try:
-                cam.stop_encoder()
+                if cam is not None:
+                    cam.stop_encoder()
             except Exception:
                 pass
             return
@@ -184,7 +200,7 @@ class RecordingManager:
         self._active = None  # release state early so re-entrant calls no-op
 
         try:
-            from camera import _get_camera
+            from .camera import _get_camera
             cam = _get_camera()
             if cam is not None:
                 try:
