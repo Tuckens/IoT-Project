@@ -354,309 +354,312 @@
     </div>
 
     <script>
-        const csrf = () => document.querySelector('meta[name="csrf-token"]').content;
+    const csrf = () => {
+        const el = document.querySelector('meta[name="csrf-token"]');
+        return el ? el.content : '';
+    };
 
-        // ─── Tabs ───────────────────────────────────────────────────
-        function showTab(name) {
-            document.querySelectorAll('.tab').forEach(t =>
-                t.classList.toggle('active', t.dataset.tab === name)
-            );
-            document.querySelectorAll('.panel').forEach(p =>
-                p.classList.toggle('active', p.id === 'panel-' + name)
-            );
-            if (name === 'users') loadUsers();
-            if (name === 'logs') loadLogs();
-            if (name === 'recordings') loadRecordings();
-            if (name === 'settings') loadSettings();
-        }
+    // ─── Tabs ───────────────────────────────────────────────────
+    function showTab(name) {
         document.querySelectorAll('.tab').forEach(t =>
-            t.addEventListener('click', () => showTab(t.dataset.tab))
+            t.classList.toggle('active', t.dataset.tab === name)
         );
+        document.querySelectorAll('.panel').forEach(p =>
+            p.classList.toggle('active', p.id === 'panel-' + name)
+        );
+        if (name === 'users') loadUsers();
+        if (name === 'logs') loadLogs();
+        if (name === 'recordings') loadRecordings();
+        if (name === 'settings') loadSettings();
+    }
+    document.querySelectorAll('.tab').forEach(t =>
+        t.addEventListener('click', () => showTab(t.dataset.tab))
+    );
 
-        // ─── DOM helpers ────────────────────────────────────────────
-        function buildTextCell(text) {
-            const td = document.createElement('td');
-            td.textContent = text;
-            return td;
+    // ─── DOM helpers ────────────────────────────────────────────
+    function buildTextCell(text) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        return td;
+    }
+
+    // ─── Users ──────────────────────────────────────────────────
+    async function loadUsers() {
+        try {
+            const r = await fetch('/admin/users');
+            const data = await r.json();
+            const tbody = document.getElementById('users-table-body');
+            tbody.replaceChildren();
+
+            data.users.forEach(user => {
+                const tr = document.createElement('tr');
+                tr.appendChild(buildTextCell(user.user_id));
+
+                const tdUser = document.createElement('td');
+                const un = document.createElement('input');
+                un.type = 'text'; un.id = 'username-' + user.user_id;
+                un.value = user.username;
+                tdUser.appendChild(un); tr.appendChild(tdUser);
+
+                const tdPwd = document.createElement('td');
+                const pw = document.createElement('input');
+                pw.type = 'password'; pw.id = 'password-' + user.user_id;
+                pw.placeholder = 'Leave blank to keep';
+                tdPwd.appendChild(pw); tr.appendChild(tdPwd);
+
+                const tdPerm = document.createElement('td');
+                const sel = document.createElement('select');
+                sel.id = 'perm-' + user.user_id;
+                for (const p of ['user', 'Admin']) {
+                    const opt = document.createElement('option');
+                    opt.value = p;
+                    opt.textContent = p === 'user' ? 'User' : 'Admin';
+                    if (user.permissions === p) opt.selected = true;
+                    sel.appendChild(opt);
+                }
+                tdPerm.appendChild(sel); tr.appendChild(tdPerm);
+
+                const tdAct = document.createElement('td');
+                const row = document.createElement('div'); row.className = 'btn-row';
+                const update = document.createElement('button');
+                update.className = 'btn'; update.textContent = '🛠 Update';
+                update.addEventListener('click', () => updateUser(user.user_id));
+                row.appendChild(update);
+                const del = document.createElement('button');
+                del.className = 'btn danger'; del.textContent = '🗑 Delete';
+                del.addEventListener('click', () => deleteUser(user.username));
+                row.appendChild(del);
+                tdAct.appendChild(row); tr.appendChild(tdAct);
+
+                tbody.appendChild(tr);
+            });
+        } catch (err) { console.error(err); }
+    }
+
+    async function updateUser(userId) {
+        const newUsername = document.getElementById('username-' + userId).value;
+        const newPassword = document.getElementById('password-' + userId).value;
+        const newPermissions = document.getElementById('perm-' + userId).value;
+
+        const body = { username: newUsername, permissions: newPermissions };
+        const headers = { 'Content-Type': 'application/json' };
+        if (newPassword) {
+            const pwd = prompt("Confirm your own admin password to change this user's password:");
+            if (!pwd) return;
+            body.password = newPassword;
+            body.current_password = pwd;
         }
+        try {
+            const r = await fetch('/admin/users/' + userId, {
+                method: 'PUT',
+                headers: headers,
+                body: JSON.stringify(body)
+            });
+            const result = await r.json();
+            if (r.ok) { alert('Success: ' + result.message); loadUsers(); }
+            else { alert('Error: ' + result.error); }
+        } catch (err) { console.error(err); alert('Request failed.'); }
+    }
 
-        // ─── Users ──────────────────────────────────────────────────
-        async function loadUsers() {
-            try {
-                const r = await fetch('/admin/users');
-                const data = await r.json();
-                const tbody = document.getElementById('users-table-body');
-                tbody.replaceChildren();
+    async function deleteUser(targetUsername) {
+        if (!confirm(`Delete user "${targetUsername}"? This cannot be undone.`)) return;
+        try {
+            const r = await fetch('/api/auth/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_user: targetUsername })
+            });
+            const result = await r.json();
+            if (r.ok) { alert('User deleted.'); loadUsers(); }
+            else { alert('Error: ' + (result.error || 'unknown')); }
+        } catch (err) { console.error(err); alert('Request failed.'); }
+    }
 
-                data.users.forEach(user => {
-                    const tr = document.createElement('tr');
-                    tr.appendChild(buildTextCell(user.user_id));
+    // ─── Logs ───────────────────────────────────────────────────
+    async function loadLogs() {
+        try {
+            const r = await fetch('/admin/logs');
+            const data = await r.json();
+            const tbody = document.getElementById('logs-table-body');
+            tbody.replaceChildren();
 
-                    const tdUser = document.createElement('td');
-                    const un = document.createElement('input');
-                    un.type = 'text'; un.id = 'username-' + user.user_id;
-                    un.value = user.username;
-                    tdUser.appendChild(un); tr.appendChild(tdUser);
+            if (data.logs.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 5; td.className = 'no-data';
+                td.textContent = 'No logs found';
+                tr.appendChild(td); tbody.appendChild(tr); return;
+            }
+            data.logs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.appendChild(buildTextCell(log.id));
+                tr.appendChild(buildTextCell(log.eventtype));
+                tr.appendChild(buildTextCell(log.description || '-'));
+                tr.appendChild(buildTextCell(log.value !== null ? log.value : '-'));
+                tr.appendChild(buildTextCell(log.timestamp || '-'));
+                tbody.appendChild(tr);
+            });
+        } catch (err) { console.error(err); }
+    }
 
-                    const tdPwd = document.createElement('td');
-                    const pw = document.createElement('input');
-                    pw.type = 'password'; pw.id = 'password-' + user.user_id;
-                    pw.placeholder = 'Leave blank to keep';
-                    tdPwd.appendChild(pw); tr.appendChild(tdPwd);
+    // ─── Recordings ─────────────────────────────────────────────
+    function fmtSize(bytes) {
+        if (bytes == null) return '-';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+    function fmtDuration(s) {
+        if (s == null) return '-';
+        return s.toFixed(1) + ' s';
+    }
 
-                    const tdPerm = document.createElement('td');
-                    const sel = document.createElement('select');
-                    sel.id = 'perm-' + user.user_id;
-                    for (const p of ['user', 'Admin']) {
-                        const opt = document.createElement('option');
-                        opt.value = p;
-                        opt.textContent = p === 'user' ? 'User' : 'Admin';
-                        if (user.permissions === p) opt.selected = true;
-                        sel.appendChild(opt);
-                    }
-                    tdPerm.appendChild(sel); tr.appendChild(tdPerm);
+    async function loadRecordings() {
+        try {
+            const r = await fetch('/admin/recordings');
+            const data = await r.json();
+            const banner = document.getElementById('active-banner');
+            banner.replaceChildren();
+            if (data.active) {
+                const span = document.createElement('span');
+                span.innerHTML = '';
+                span.appendChild(document.createTextNode('● Recording in progress — trigger: '));
+                const b = document.createElement('strong');
+                b.textContent = data.active.trigger;
+                span.appendChild(b);
+                banner.className = 'active-banner';
+                banner.appendChild(span);
+            } else {
+                banner.className = '';
+            }
 
-                    const tdAct = document.createElement('td');
-                    const row = document.createElement('div'); row.className = 'btn-row';
-                    const update = document.createElement('button');
-                    update.className = 'btn'; update.textContent = '🛠 Update';
-                    update.addEventListener('click', () => updateUser(user.user_id));
-                    row.appendChild(update);
+            const tbody = document.getElementById('recordings-table-body');
+            tbody.replaceChildren();
+
+            if (!data.recordings || data.recordings.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 5; td.className = 'no-data';
+                td.textContent = 'No recordings yet';
+                tr.appendChild(td); tbody.appendChild(tr); return;
+            }
+
+            data.recordings.forEach(rec => {
+                const tr = document.createElement('tr');
+                tr.appendChild(buildTextCell(rec.started_at || '-'));
+
+                const tdTrig = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = 'badge ' + rec.trigger;
+                badge.textContent = rec.trigger;
+                tdTrig.appendChild(badge); tr.appendChild(tdTrig);
+
+                tr.appendChild(buildTextCell(fmtDuration(rec.duration_s)));
+                tr.appendChild(buildTextCell(fmtSize(rec.size_bytes)));
+
+                const tdAct = document.createElement('td');
+                const row = document.createElement('div'); row.className = 'btn-row';
+
+                if (rec.ready) {
+                    const play = document.createElement('button');
+                    play.className = 'btn'; play.textContent = '▶ Play';
+                    play.addEventListener('click', () => openVideo(rec));
+                    row.appendChild(play);
+
+                    const dl = document.createElement('a');
+                    dl.className = 'btn ghost';
+                    dl.href = '/admin/recordings/' + rec.id + '/download';
+                    dl.textContent = '⬇ Download';
+                    row.appendChild(dl);
+
                     const del = document.createElement('button');
                     del.className = 'btn danger'; del.textContent = '🗑 Delete';
-                    del.addEventListener('click', () => deleteUser(user.username));
+                    del.addEventListener('click', () => deleteRecording(rec.id));
                     row.appendChild(del);
-                    tdAct.appendChild(row); tr.appendChild(tdAct);
-
-                    tbody.appendChild(tr);
-                });
-            } catch (err) { console.error(err); }
-        }
-
-        async function updateUser(userId) {
-            const newUsername = document.getElementById('username-' + userId).value;
-            const newPassword = document.getElementById('password-' + userId).value;
-            const newPermissions = document.getElementById('perm-' + userId).value;
-
-            const body = { username: newUsername, permissions: newPermissions };
-            if (newPassword) {
-                const pwd = prompt("Confirm your own admin password to change this user's password:");
-                if (!pwd) return;
-                body.password = newPassword;
-                body.current_password = pwd;
-            }
-            try {
-                const r = await fetch('/admin/users/' + userId, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-                    body: JSON.stringify(body)
-                });
-                const result = await r.json();
-                if (r.ok) { alert('Success: ' + result.message); loadUsers(); }
-                else { alert('Error: ' + result.error); }
-            } catch (err) { console.error(err); alert('Request failed.'); }
-        }
-
-        async function deleteUser(targetUsername) {
-            if (!confirm(`Delete user "${targetUsername}"? This cannot be undone.`)) return;
-            try {
-                const r = await fetch('/api/auth/delete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-                    body: JSON.stringify({ target_user: targetUsername })
-                });
-                const result = await r.json();
-                if (r.ok) { alert('User deleted.'); loadUsers(); }
-                else { alert('Error: ' + (result.error || 'unknown')); }
-            } catch (err) { console.error(err); alert('Request failed.'); }
-        }
-
-        // ─── Logs ───────────────────────────────────────────────────
-        async function loadLogs() {
-            try {
-                const r = await fetch('/admin/logs');
-                const data = await r.json();
-                const tbody = document.getElementById('logs-table-body');
-                tbody.replaceChildren();
-
-                if (data.logs.length === 0) {
-                    const tr = document.createElement('tr');
-                    const td = document.createElement('td');
-                    td.colSpan = 5; td.className = 'no-data';
-                    td.textContent = 'No logs found';
-                    tr.appendChild(td); tbody.appendChild(tr); return;
-                }
-                data.logs.forEach(log => {
-                    const tr = document.createElement('tr');
-                    tr.appendChild(buildTextCell(log.id));
-                    tr.appendChild(buildTextCell(log.eventtype));
-                    tr.appendChild(buildTextCell(log.description || '-'));
-                    tr.appendChild(buildTextCell(log.value !== null ? log.value : '-'));
-                    tr.appendChild(buildTextCell(log.timestamp || '-'));
-                    tbody.appendChild(tr);
-                });
-            } catch (err) { console.error(err); }
-        }
-
-        // ─── Recordings ─────────────────────────────────────────────
-        function fmtSize(bytes) {
-            if (bytes == null) return '-';
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-        }
-        function fmtDuration(s) {
-            if (s == null) return '-';
-            return s.toFixed(1) + ' s';
-        }
-
-        async function loadRecordings() {
-            try {
-                const r = await fetch('/admin/recordings');
-                const data = await r.json();
-                const banner = document.getElementById('active-banner');
-                banner.replaceChildren();
-                if (data.active) {
-                    const span = document.createElement('span');
-                    span.innerHTML = '';
-                    span.appendChild(document.createTextNode('● Recording in progress — trigger: '));
-                    const b = document.createElement('strong');
-                    b.textContent = data.active.trigger;
-                    span.appendChild(b);
-                    banner.className = 'active-banner';
-                    banner.appendChild(span);
                 } else {
-                    banner.className = '';
+                    const pending = document.createElement('span');
+                    pending.style.color = '#7aa4c8';
+                    pending.style.fontSize = '12px';
+                    pending.textContent = 'Finalising…';
+                    row.appendChild(pending);
                 }
+                tdAct.appendChild(row); tr.appendChild(tdAct);
 
-                const tbody = document.getElementById('recordings-table-body');
-                tbody.replaceChildren();
+                tbody.appendChild(tr);
+            });
+        } catch (err) { console.error(err); }
+    }
 
-                if (!data.recordings || data.recordings.length === 0) {
-                    const tr = document.createElement('tr');
-                    const td = document.createElement('td');
-                    td.colSpan = 5; td.className = 'no-data';
-                    td.textContent = 'No recordings yet';
-                    tr.appendChild(td); tbody.appendChild(tr); return;
-                }
+    async function deleteRecording(id) {
+        if (!confirm('Delete this recording permanently?')) return;
+        try {
+            const r = await fetch('/admin/recordings/' + id, {
+                method: 'DELETE',
+                headers: { 'X-CSRFToken': csrf() }
+            });
+            const result = await r.json();
+            if (r.ok) loadRecordings();
+            else alert('Error: ' + (result.error || 'unknown'));
+        } catch (err) { console.error(err); alert('Request failed.'); }
+    }
 
-                data.recordings.forEach(rec => {
-                    const tr = document.createElement('tr');
-                    tr.appendChild(buildTextCell(rec.started_at || '-'));
+    function openVideo(rec) {
+        const modal = document.getElementById('video-modal');
+        document.getElementById('video-title').textContent =
+            rec.trigger + ' — ' + (rec.started_at || '');
+        const v = document.getElementById('video-player');
+        v.src = '/admin/recordings/' + rec.id + '/stream';
+        modal.classList.add('open');
+    }
+    function closeVideo() {
+        const modal = document.getElementById('video-modal');
+        const v = document.getElementById('video-player');
+        v.pause(); v.src = '';
+        modal.classList.remove('open');
+    }
+    function closeVideoIfBackdrop(e) {
+        if (e.target.id === 'video-modal') closeVideo();
+    }
 
-                    const tdTrig = document.createElement('td');
-                    const badge = document.createElement('span');
-                    badge.className = 'badge ' + rec.trigger;
-                    badge.textContent = rec.trigger;
-                    tdTrig.appendChild(badge); tr.appendChild(tdTrig);
+    // ─── Settings ───────────────────────────────────────────────
+    async function loadSettings() {
+        try {
+            const r = await fetch('/admin/settings');
+            const data = await r.json();
+            const input = document.getElementById('temp-threshold');
+            input.value = (data.temperature_alarm_below == null) ? '' : data.temperature_alarm_below;
+        } catch (err) { console.error(err); }
+    }
 
-                    tr.appendChild(buildTextCell(fmtDuration(rec.duration_s)));
-                    tr.appendChild(buildTextCell(fmtSize(rec.size_bytes)));
+    async function saveSettings(ev) {
+        ev.preventDefault();
+        const raw = document.getElementById('temp-threshold').value;
+        const payload = { temperature_alarm_below: (raw === '') ? null : parseFloat(raw) };
+        try {
+            const r = await fetch('/admin/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await r.json();
+            if (r.ok) alert('Settings saved.');
+            else alert('Error: ' + (result.error || 'unknown'));
+        } catch (err) { console.error(err); alert('Request failed.'); }
+    }
 
-                    const tdAct = document.createElement('td');
-                    const row = document.createElement('div'); row.className = 'btn-row';
+    async function clearThreshold() {
+        document.getElementById('temp-threshold').value = '';
+        const ev = new Event('submit', { cancelable: true });
+        saveSettings(ev);
+    }
 
-                    if (rec.ready) {
-                        const play = document.createElement('button');
-                        play.className = 'btn'; play.textContent = '▶ Play';
-                        play.addEventListener('click', () => openVideo(rec));
-                        row.appendChild(play);
-
-                        const dl = document.createElement('a');
-                        dl.className = 'btn ghost';
-                        dl.href = '/admin/recordings/' + rec.id + '/download';
-                        dl.textContent = '⬇ Download';
-                        row.appendChild(dl);
-
-                        const del = document.createElement('button');
-                        del.className = 'btn danger'; del.textContent = '🗑 Delete';
-                        del.addEventListener('click', () => deleteRecording(rec.id));
-                        row.appendChild(del);
-                    } else {
-                        const pending = document.createElement('span');
-                        pending.style.color = '#7aa4c8';
-                        pending.style.fontSize = '12px';
-                        pending.textContent = 'Finalising…';
-                        row.appendChild(pending);
-                    }
-                    tdAct.appendChild(row); tr.appendChild(tdAct);
-
-                    tbody.appendChild(tr);
-                });
-            } catch (err) { console.error(err); }
-        }
-
-        async function deleteRecording(id) {
-            if (!confirm('Delete this recording permanently?')) return;
-            try {
-                const r = await fetch('/admin/recordings/' + id, {
-                    method: 'DELETE',
-                    headers: { 'X-CSRFToken': csrf() }
-                });
-                const result = await r.json();
-                if (r.ok) loadRecordings();
-                else alert('Error: ' + (result.error || 'unknown'));
-            } catch (err) { console.error(err); alert('Request failed.'); }
-        }
-
-        function openVideo(rec) {
-            const modal = document.getElementById('video-modal');
-            document.getElementById('video-title').textContent =
-                rec.trigger + ' — ' + (rec.started_at || '');
-            const v = document.getElementById('video-player');
-            v.src = '/admin/recordings/' + rec.id + '/stream';
-            modal.classList.add('open');
-        }
-        function closeVideo() {
-            const modal = document.getElementById('video-modal');
-            const v = document.getElementById('video-player');
-            v.pause(); v.src = '';
-            modal.classList.remove('open');
-        }
-        function closeVideoIfBackdrop(e) {
-            if (e.target.id === 'video-modal') closeVideo();
-        }
-
-        // ─── Settings ───────────────────────────────────────────────
-        async function loadSettings() {
-            try {
-                const r = await fetch('/admin/settings');
-                const data = await r.json();
-                const input = document.getElementById('temp-threshold');
-                input.value = (data.temperature_alarm_below == null) ? '' : data.temperature_alarm_below;
-            } catch (err) { console.error(err); }
-        }
-
-        async function saveSettings(ev) {
-            ev.preventDefault();
-            const raw = document.getElementById('temp-threshold').value;
-            const payload = { temperature_alarm_below: (raw === '') ? null : parseFloat(raw) };
-            try {
-                const r = await fetch('/admin/settings', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-                    body: JSON.stringify(payload)
-                });
-                const result = await r.json();
-                if (r.ok) alert('Settings saved.');
-                else alert('Error: ' + (result.error || 'unknown'));
-            } catch (err) { console.error(err); alert('Request failed.'); }
-        }
-
-        async function clearThreshold() {
-            document.getElementById('temp-threshold').value = '';
-            const ev = new Event('submit', { cancelable: true });
-            saveSettings(ev);
-        }
-
-        // ─── Boot ───────────────────────────────────────────────────
-        showTab('users');
-        // poll recordings every 5s when the tab is active
-        setInterval(() => {
-            const active = document.querySelector('.panel.active');
-            if (active && active.id === 'panel-recordings') loadRecordings();
-        }, 5000);
-    </script>
+    // ─── Boot ───────────────────────────────────────────────────
+    showTab('users');
+    setInterval(() => {
+        const active = document.querySelector('.panel.active');
+        if (active && active.id === 'panel-recordings') loadRecordings();
+    }, 5000);
+</script>
 </body>
 
 </html>
