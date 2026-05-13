@@ -5,26 +5,35 @@
 
 - Raspberry PI 4B
 - Raspberry PI Camera Rev 1.3
-- ESP 
-- BMP280
-
+- ESP32
+- DHT22 Temperature & Humidity Sensor
+- PIR Motion Sensor
 
 
 ## Software
 
 - Raspberry PI OS Lite 64 Bit
-- PosgreSQL
+- SQLite
 - html
 - css
 - javascript
 - python3
-  
+- Ngnix
+- Python 3 (Flask)
 
 ## Description
-The raspi is connected to the raspi camera. The ESP is connected to a temperature sensor. When the sensor is triggered (detects too high temperature) 
-the ESP sends information to the raspbi to record with the camera for a few seconds.
+An IoT sensor platform that collects environmental data and displays it on a live dashboard. The ESP32 reads temperature, humidity, and motion data and sends it to the Raspberry Pi over HTTP. The Pi logs the data, displays real-time charts, streams a live camera feed, and triggers video recordings based on sensor thresholds.
 
-### ArduinoIDE
-Go to File > Preferences > Add the link *https://arduino.esp8266.com/stable/package_esp8266com_index.json* in **Additional boards manager URL**.
-In Board Manager choose **NodeMCU 1.0 (ESP12-E)**. Then also import BMP280 library and run the code
+The system includes user authentication, an admin panel for managing users and settings, and a honeypot API for educational demonstrations.
+
+## Freatures
+
+- Live sensor dashboard — real-time temperature and motion charts
+
+- Camera streaming — MJPEG feed with motion/temperature-triggered recording
+
+- User authentication — registration, login, session management
+
+- Admin panel — user management, system logs, recording playback, settings
+
 
