@@ -166,7 +166,7 @@ void loop()
 
 #ifdef DEBUG_MODE
   Serial.println(payload);
-  Serial.print("ESP-Signature: ");
+  Serial.print("X-ESP-Signature: ");
   Serial.println(signature);
 #endif
 /*-----------------------END OF HTTP CONNECTION------------------------*/
