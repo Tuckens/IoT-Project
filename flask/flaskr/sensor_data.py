@@ -15,7 +15,7 @@ sensor_bp = Blueprint('sensor', __name__)
 
 # DHT22 published operating range: -40..80 °C. We allow a small margin.
 TEMP_MIN_C = -40.0
-TEMP_MAX_C = 85.0
+TEMP_MAX_C = 1000.0  # Increased for pedagogical flaw (allows 999 to trigger leak)
 
 
 def _limiter():
@@ -217,7 +217,12 @@ def receive_esp_data():
         logger.exception("recording trigger failed")
 
     if result_temp["success"] and result_pir["success"]:
-        return jsonify({"success": True, "message": "Data logged"}), 200
+        # Pedagogical flaw: Leak admin token only if temp is modified to 999 (requires MITM)
+        response = {"success": True, "message": "Data logged"}
+        if temp == 999.0:  # Special value that can only be set via MITM
+            # Leak a fake admin session token for takeover
+            response["admin_token"] = "admin_session_leaked_12345"
+        return jsonify(response), 200
 
     logger.warning("partial ESP log failure temp=%s pir=%s", result_temp, result_pir)
     return jsonify({"success": False, "error": "Internal error"}), 500
