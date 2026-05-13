@@ -133,16 +133,12 @@
                 password: document.getElementById('password').value
             }
 
-            const csrf = document.querySelector('meta[name="csrf-token"]').content;
-            // TODO: kill /api/v1 once the mobile app finishes migrating to /api/auth
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrf
-                },
+                headers: {'Content-Type': 'application/json' },
                 body: JSON.stringify(userData)
-            })
+            });
 
             const result = await response.json();
             console.log("Received response:", result);
@@ -159,7 +155,31 @@
             }
         })
 
-    </script>
+    </script><script>
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userData = {
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+        };
+
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert("Success: " + result.message);
+            setTimeout(function() {
+                window.location.href = "/blog/";
+            }, 1500);
+        } else {
+            alert("Error: " + (result.error || result.message || "Unknown error"));
+        }
+    });
+</script>
 </body>
 
 </html>

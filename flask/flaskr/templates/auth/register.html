@@ -152,45 +152,29 @@
 
 </body>
 
-<script>    
-    
+<script>
     document.getElementById('userForm').addEventListener('submit', async (e) => {
-   
-        e.preventDefault(); 
-
-
+        e.preventDefault();
         const userData = {
-            username : document.getElementById('username').value,
-            password : document.getElementById('password').value
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
         };
 
-        console.log(userData);
-
-        const csrf = document.querySelector('meta[name="csrf-token"]').content;
         const response = await fetch('/api/auth/register', {
-            method : "POST",
-            headers : {
-                'Content-Type' : 'application/json',
-                'X-CSRFToken' : csrf
-            },
-            body : JSON.stringify(userData)
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
         });
 
-  
         const data = await response.json();
-        console.log(data);
-
         if (response.ok) {
             alert("Account created! " + (data.message || ""));
             setTimeout(function() {
-              window.location.href =  "/api/auth/login";
-            },500)
-            document.getElementById('userForm').reset();
+                window.location.href = "/api/auth/login";
+            }, 500);
         } else {
-            alert("Error: " + (data.error || ""));
-            document.getElementById('userForm').reset();
+            alert("Error: " + (data.error || "Unknown error"));
         }
-
     });
 </script>
 </html>

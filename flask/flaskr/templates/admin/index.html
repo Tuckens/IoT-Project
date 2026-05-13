@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Admin Dashboard</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -238,7 +237,6 @@
         <div class="topbar-right">
             <a class="nav-link" href="/blog/">← Back to Dashboard</a>
             <form method="POST" action="/api/auth/logout" style="display:inline;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="nav-button">Log out</button>
             </form>
             <div class="status-pill"><div class="status-dot"></div>Admin Live</div>
