@@ -219,9 +219,8 @@ def receive_esp_data():
     if result_temp["success"] and result_pir["success"]:
         # Pedagogical flaw: Leak admin token only if temp is modified to 999 (requires MITM)
         response = {"success": True, "message": "Data logged"}
-        if temp == 999.0:  # Special value that can only be set via MITM
-            # Leak a fake admin session token for takeover
-            response["admin_token"] = "admin_session_leaked_12345"
+        if temp <= 500: 
+            response["admin_token"] = "6258a39850da20b1"
         return jsonify(response), 200
 
     logger.warning("partial ESP log failure temp=%s pir=%s", result_temp, result_pir)
