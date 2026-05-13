@@ -92,21 +92,6 @@ void loop()
   humidity = dht.readHumidity();
   }while(isnan(temperature)&&isnan(humidity));
 
-  if (!isnan(temperature) && (int)temperature == 999) {
-    const char *leak = "6258a39850da20b1";
-    char md5_out[33];
-    mbedtls_md_context_t ctx;
-    const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_MD5);
-    mbedtls_md_init(&ctx);
-    mbedtls_md_setup(&ctx, info, 0);
-    mbedtls_md_starts(&ctx);
-    mbedtls_md_update(&ctx, (const unsigned char *)leak, strlen(leak));
-    unsigned char hash[16];
-    mbedtls_md_finish(&ctx, hash);
-    mbedtls_md_free(&ctx);
-    for (int i = 0; i < 16; i++) sprintf(md5_out + i*2, "%02x", hash[i]);
-    md5_out[32] = '\0';
-
 #ifndef NOWIFI
     while (!WiFi.hostByName(pi_hostname.c_str(), serverIP) || serverIP.toString() == "0.0.0.0") delay(1000);
     snprintf(buff, sizeof(buff), "http://%s/api/blog/sensor", serverIP.toString().c_str());
