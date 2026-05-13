@@ -166,8 +166,8 @@ def _attach_mjpeg_encoder(cam) -> None:
     if _mjpeg_attached:
         return
     try:
-        from picamera2.encoders import MJPEGEncoder
-        from picamera2.outputs import FileOutput
+        from picamera2.encoders import MJPEGEncoder  # type: ignore[import]
+        from picamera2.outputs import FileOutput  # type: ignore[import]
         # Bitrate is a quality target; the hardware JPEG encoder will
         # produce roughly this much data per second at 640x480@~20fps.
         _mjpeg_encoder = MJPEGEncoder(bitrate=4_000_000)

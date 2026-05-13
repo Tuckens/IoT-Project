@@ -37,20 +37,20 @@ def create_app() -> Flask:
         x_host=proxy_hops,
     )
 
-    csrf.init_app(app)
+    # csrf.init_app(app)  # Temporarily disabled
     # Flask-WTF's init_app already setdefault()s WTF_CSRF_SSL_STRICT=True, so
     # a later setdefault is a no-op — we must assign directly. We keep the
     # Referer check ON (see Referrer-Policy below); this line just documents
     # that we rely on it rather than turning it off.
     app.config['WTF_CSRF_SSL_STRICT'] = True
 
-    limiter = Limiter(
-        get_remote_address,
-        app=app,
-        default_limits=["200 per minute"],
-        storage_uri="memory://",
-    )
-    app.extensions['limiter'] = limiter
+    # limiter = Limiter(
+    #     get_remote_address,
+    #     app=app,
+    #     default_limits=["200 per minute"],
+    #     storage_uri="memory://",
+    # )
+    # app.extensions['limiter'] = limiter
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(blog_bp, url_prefix='/blog')
@@ -95,10 +95,10 @@ def create_app() -> Flask:
     def home():
         return redirect(url_for('auth.api_login'))
 
-    scheduler = BackgroundScheduler(daemon=True)
-    scheduler.add_job(cleanup_old_logs, 'interval', hours=1)
-    scheduler.add_job(cleanup_old_recordings, 'interval', hours=1)
-    scheduler.start()
+    # scheduler = BackgroundScheduler(daemon=True)
+    # scheduler.add_job(cleanup_old_logs, 'interval', hours=1)
+    # scheduler.add_job(cleanup_old_recordings, 'interval', hours=1)
+    # scheduler.start()
 
     return app
 

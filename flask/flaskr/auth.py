@@ -79,7 +79,9 @@ def api_delete():
     # admin_required already verified the caller is still an Admin in the DB
     # (not just in the cookie). Identity of the requester still comes from
     # the session — never from the body — to stop requester-spoofing.
-    requester_username = session.get('username')
+    requester_username: str = session.get('username') or ''
+    if not requester_username:
+        return jsonify({"error": "Not authenticated"}), 401
 
     data = request.get_json(silent=True) or {}
     target_username = (data.get('target_user') or '').strip()
