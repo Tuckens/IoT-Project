@@ -5,28 +5,25 @@
 #include "creds.example.h"
 
 #define DEBUG_MODE // Comment to mute Serial debug output
-// #define NOWIFI   // Comment when using with the Raspberry Pi
+//#define NOWIFI   // Comment when using with the Raspberry Pi
 
 #define PIR 33
 
-#define DHTPIN 32
-#define DHTTYPE DHT22
 
-#define DHT_RETRY_DELAY 1000    //instead of 2500
-#define DHT_REINIT_AFTER 5
 
 String pi_hostname = "bpem.local";
-DHT dht(DHTPIN, DHTTYPE);
+DHT dht(32, DHT22);   //PIN, TYPE
 
 IPAddress serverIP;
 unsigned char hmac[32];
+mbedtls_md_context_t ctx;
+
 
 // Compute HMAC-SHA256(key, message) and write the lowercase hex digest
 // into out_hex (must hold 65 bytes: 64 hex chars + NUL). mbedtls is part
 // of the standard ESP32 Arduino core — no extra library to install.
 void compute_hmac_sha256_hex(const char *key, const char *msg, char *out_hex)
 {
-  mbedtls_md_context_t ctx;
   const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
 
   mbedtls_md_init(&ctx);
@@ -43,46 +40,11 @@ void compute_hmac_sha256_hex(const char *key, const char *msg, char *out_hex)
   out_hex[64] = '\0';
 }
 
-void readDHTBlocking(float &temperature, float &humidity)
-{
-  /*unsigned int failCount = 0;
 
-  while (true)
-  {
-    temperature = dht.readTemperature();
-    humidity = dht.readHumidity();
 
-    if (!isnan(temperature) && !isnan(humidity))
-    {
-      if (failCount > 0)
-      {
-#ifdef DEBUG_MODE
-        Serial.print("AM2302 recovered after ");
-        Serial.print(failCount);
-        Serial.println(" failed attempt(s)");
-#endif
-      }
-      return;
-    }
-
-    failCount++;
-#ifdef DEBUG_MODE
-    Serial.print("Failed to read from AM2302! (attempt ");
-    Serial.print(failCount);
-    Serial.println(")");
-#endif
-
-    if (failCount % DHT_REINIT_AFTER == 0)
-    {
-#ifdef DEBUG_MODE
-      Serial.println("Re-initializing AM2302...");
-#endif
-      dht.begin();
-    
-    }
-    delay(DHT_RETRY_DELAY);
-  }*/
-}
+/*----------------------------------------------------------------------*/
+/*--------------------------------SETUP---------------------------------*/
+/*----------------------------------------------------------------------*/
 
 
 void setup()
@@ -126,38 +88,28 @@ void setup()
 
 
 
-
-
-
-unsigned int count = 0;
+/*----------------------------------------------------------------------*/
+/*---------------------------------LOOP---------------------------------*/
+/*----------------------------------------------------------------------*/
 
 WiFiClient wifi;
 HTTPClient http;
 char buff[200] = "";
 char payload[200] = "";
 char signature[65] = "";
-
-
-
-
-/*----------------------------------------------------------------------*/
-/*---------------------------------LOOP---------------------------------*/
-/*----------------------------------------------------------------------*/
-
-
+unsigned int msid=0;
 float temperature, humidity;
+
 
 void loop()
 {
-  //readDHTBlocking(temperature, humidity);
+
+/*---------------------READ TEMPERATURE AND HUMIDITY---------------------*/
+  
   do{
   temperature = dht.readTemperature();
   humidity = dht.readHumidity();
   }while(isnan(temperature)&&isnan(humidity));
-
-
-
-
 
 #ifdef DEBUG_MODE
   Serial.print("Temperature[C]: ");
@@ -167,6 +119,9 @@ void loop()
   Serial.print(" Motion: ");
   Serial.println(digitalRead(PIR));
 #endif
+
+/*------------------------END OF TEMP READING---------------------------*/
+
 
 /*---------------------------mDNS RESOLUTION---------------------------*/
 #ifndef NOWIFI
@@ -185,6 +140,7 @@ void loop()
 #endif
 /*-----------------------END OF mDNS RESOLUTION------------------------*/
 
+
 /*---------------------------HTTP CONNECTION---------------------------*/
 #ifndef NOWIFI
   snprintf(buff, sizeof(buff), "http://%s/api/blog/sensor", serverIP.toString().c_str());
@@ -196,8 +152,8 @@ void loop()
 
   // Build the payload (no secret inside it anymore).
   snprintf(payload, sizeof(payload),
-           "{\"id\":%d,\"temp\":%.2f,\"hum\":%.2f,\"pir\":%d,\"user\":\"esp32\",\"token\":\"secretpass\"}",
-           count, temperature, humidity, digitalRead(PIR));
+           "{\"id\":%d,\"temp\":%.2f,\"hum\":%.2f,\"pir\":%d,\"user\":\"esp32\",\"token\":\"#s3Cr3tP4S5!\"}",
+           msid, temperature, humidity, digitalRead(PIR));
 
   // Sign it with the shared HMAC key. The signature goes in a header,
   // not in the body, so the body bytes that the server hashes are
@@ -206,13 +162,17 @@ void loop()
 
   http.begin(wifi, buff);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-ESP-Signature", signature);
+  http.addHeader("ESP-Signature", signature);
 
 #ifdef DEBUG_MODE
   Serial.println(payload);
-  Serial.print("X-ESP-Signature: ");
+  Serial.print("ESP-Signature: ");
   Serial.println(signature);
 #endif
+/*-----------------------END OF HTTP CONNECTION------------------------*/
+
+
+/*----------------------------HTTP REQUEST----------------------------*/
 
   int httpResponseCode = http.POST((uint8_t *)payload, strlen(payload));
 #ifdef DEBUG_MODE
@@ -221,9 +181,8 @@ void loop()
 #endif
   http.end();
 #endif
-  /*-----------------------END OF HTTP CONNECTION------------------------*/
 
-  count++;
-
+/*-------------------------END OF HTTP REQUEST-------------------------*/
+  msid++;
   delay(1000);
 }
