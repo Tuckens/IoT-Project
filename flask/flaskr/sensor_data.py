@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, request, jsonify, current_app
 
-from db import log_sensor_data, record_camera_event, LocalSession, EventLogs
-from decorators import login_required
+from .db import log_sensor_data, record_camera_event, LocalSession, EventLogs
+from .decorators import login_required
 
 logger = logging.getLogger(__name__)
 sensor_bp = Blueprint('sensor', __name__)
@@ -78,12 +78,12 @@ def get_sensor_data():
         )
 
         temperature_data = [
-            {"timestamp": log.timestamp.strftime("%H:%M:%S") if log.timestamp else "",
+            {"timestamp": log.timestamp.strftime("%H:%M:%S") if log.timestamp is not None else "",
              "value": log.value}
             for log in temp_logs
         ]
         motion_data = [
-            {"timestamp": log.timestamp.strftime("%H:%M:%S") if log.timestamp else "",
+            {"timestamp": log.timestamp.strftime("%H:%M:%S") if log.timestamp is not None else "",
              "value": log.value}
             for log in motion_logs
         ]
@@ -119,8 +119,8 @@ def get_latest():
             .first()
         )
         return jsonify({
-            "temperature": last_temp.value if last_temp else None,
-            "motion": int(last_motion.value) if last_motion else None,
+            "temperature": last_temp.value if last_temp is not None else None,
+            "motion": int(last_motion.value) if last_motion is not None else None,
         })
     except Exception:
         logger.exception("get_latest failed")
@@ -204,13 +204,13 @@ def receive_esp_data():
         return jsonify({"error": "pir must be 0 or 1"}), 400
 
     desc = f"ESP msg #{msg_id}"
-    result_temp = log_sensor_data("temperature", desc, temp)
-    result_pir = log_sensor_data("motion", desc, float(pir))
+    result_temp = log_sensor_data(msg_id, "temperature", desc, temp)
+    result_pir = log_sensor_data(msg_id, "motion", desc, float(pir))
 
     # Trigger recordings. Wrapped in try/except so a recording hiccup never
     # poisons the ingest path — data logging is the primary function.
     try:
-        from recording import recording_manager
+        from .recording import recording_manager
         recording_manager.on_motion(pir == 1)
         recording_manager.on_temperature(temp)
     except Exception:

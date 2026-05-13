@@ -3,8 +3,8 @@ from flask import (
     redirect, url_for, current_app
 )
 
-from db import create_user, login, delete_user
-from decorators import admin_required
+from .db import create_user, login, delete_user
+from .decorators import admin_required
 
 auth_bp = Blueprint('auth', __name__)
 

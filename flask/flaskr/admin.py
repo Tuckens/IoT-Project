@@ -8,13 +8,13 @@ from flask import (
 from sqlalchemy import desc
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from db import (
+from .db import (
     LocalSession, User, EventLogs,
     RECORDINGS_DIR, _valid_recording_filename,
-    list_recordings, get_recording, delete_recording,
+    get_recording_list, get_recording, delete_recording,
     get_setting, set_setting,
 )
-from decorators import admin_required
+from .decorators import admin_required
 
 logger = logging.getLogger(__name__)
 admin_bp = Blueprint('admin', __name__)
@@ -159,11 +159,11 @@ def get_logs():
 @admin_bp.route('/recordings', methods=['GET'])
 def list_recordings_route():
     try:
-        from recording import recording_manager
+        from .recording import recording_manager
         active = recording_manager.status()
     except Exception:
         active = None
-    return jsonify({"recordings": list_recordings(), "active": active})
+    return jsonify({"recordings": get_recording_list(), "active": active})
 
 
 def _resolve_recording(rec_id: int):
@@ -203,7 +203,7 @@ def delete_recording_route(rec_id: int):
     # Refuse to delete the active recording — stopping the encoder mid-write
     # would produce a broken file and leave picamera2 in a weird state.
     try:
-        from recording import recording_manager
+        from .recording import recording_manager
         active = recording_manager.status()
         if active and active.get("filename"):
             rec = get_recording(rec_id)

@@ -23,7 +23,7 @@ import time
 import threading
 import atexit
 
-from decorators import login_required
+from .decorators import login_required
 
 logger = logging.getLogger(__name__)
 camera_bp = Blueprint('camera', __name__)

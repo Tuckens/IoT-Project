@@ -1,7 +1,7 @@
 from functools import wraps
 from flask import session, redirect, url_for, render_template, jsonify, request
 
-from db import LocalSession, User
+from .db import LocalSession, User
 
 
 def _current_user():

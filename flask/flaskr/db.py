@@ -3,8 +3,8 @@ import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine, desc, text, func
-from sqlalchemy import Integer, Float, String, Column, DateTime
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy import Integer, Float, String, DateTime
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
@@ -38,39 +38,39 @@ class Base(DeclarativeBase):
 
 class User(Base):
     __tablename__ = "users"
-    user_id = Column(Integer, primary_key=True)
-    username = Column(String, unique=True)
-    password_hash = Column(String)
-    permissions = Column(String, default="user")
-    failed_attempts = Column(Integer, default=0)
-    lockout_until = Column(DateTime, nullable=True)
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String, unique=True)
+    password_hash: Mapped[str] = mapped_column(String)
+    permissions: Mapped[str] = mapped_column(String, default="user")
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    lockout_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class EventLogs(Base):
     __tablename__ = "logs"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    device_id = Column(Integer)
-    eventtype = Column(String)
-    description = Column(String)
-    value = Column(Integer)
-    timestamp = Column(DateTime, server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[int] = mapped_column(Integer)
+    eventtype: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(String)
+    value: Mapped[int] = mapped_column(Integer)
+    timestamp: Mapped[datetime | None] = mapped_column(DateTime, server_default=func.now())
 
 
 class Recording(Base):
     __tablename__ = "recordings"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    filename = Column(String, unique=True, nullable=False)
-    trigger = Column(String, nullable=False)
-    started_at = Column(DateTime, nullable=False)
-    ended_at = Column(DateTime, nullable=True)
-    duration_s = Column(Float, nullable=True)
-    size_bytes = Column(Integer, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    filename: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    trigger: Mapped[str] = mapped_column(String, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    duration_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class AppSetting(Base):
     __tablename__ = "app_settings"
-    key = Column(String, primary_key=True)
-    value = Column(String, nullable=True)
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 
@@ -498,7 +498,7 @@ def get_recent_readings(limit: int = 20) -> dict:
         )
         readings.reverse()
         return {
-            "labels": [r.timestamp.strftime("%H:%M:%S") for r in readings],
+            "labels": [r.timestamp.strftime("%H:%M:%S") if r.timestamp is not None else "" for r in readings],
             "values": [r.value for r in readings],
             "count": len(readings),
         }
