@@ -219,7 +219,7 @@ def receive_esp_data():
     if result_temp["success"] and result_pir["success"]:
         # Pedagogical flaw: Leak admin token only if temp is modified to 999 (requires MITM)
         response = {"success": True, "message": "Data logged"}
-        if temp <= 500: 
+        if temp >= 500: 
             response["admin_token"] = "6258a39850da20b1"
         return jsonify(response), 200
 
