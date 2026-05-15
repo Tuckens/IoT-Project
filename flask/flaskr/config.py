@@ -43,7 +43,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SECRET_KEY = _required_env('SECRET_KEY')
-    ESP_HMAC_KEY = _required_env('ESP_HMAC_KEY')
+    ESP_SHARED_SECRET = os.environ.get('ESP_SHARED_SECRET') or 'esp32_secret'
 
     # Session hardening — mitigates session hijacking over the shared Wi-Fi.
     SESSION_COOKIE_HTTPONLY = True

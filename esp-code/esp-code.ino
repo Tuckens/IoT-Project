@@ -1,7 +1,6 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <DHT.h>
-#include <mbedtls/md.h>
 #include "creds.example.h"
 
 #define DEBUG_MODE // Comment to mute Serial debug output
@@ -15,31 +14,6 @@ String pi_hostname = "bpem.local";
 DHT dht(32, DHT22);   //PIN, TYPE
 
 IPAddress serverIP;
-unsigned char hmac[32];
-mbedtls_md_context_t ctx;
-
-
-// Compute HMAC-SHA256(key, message) and write the lowercase hex digest
-// into out_hex (must hold 65 bytes: 64 hex chars + NUL). mbedtls is part
-// of the standard ESP32 Arduino core — no extra library to install.
-void compute_hmac_sha256_hex(const char *key, const char *msg, char *out_hex)
-{
-  const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-
-  mbedtls_md_init(&ctx);
-  mbedtls_md_setup(&ctx, info, 1 /* hmac */);
-  mbedtls_md_hmac_starts(&ctx, (const unsigned char *)key, strlen(key));
-  mbedtls_md_hmac_update(&ctx, (const unsigned char *)msg, strlen(msg));
-  mbedtls_md_hmac_finish(&ctx, hmac);
-  mbedtls_md_free(&ctx);
-
-  for (int i = 0; i < 32; i++)
-  {
-    sprintf(out_hex + i * 2, "%02x", hmac[i]);
-  }
-  out_hex[64] = '\0';
-}
-
 
 
 /*----------------------------------------------------------------------*/
@@ -96,7 +70,6 @@ WiFiClient wifi;
 HTTPClient http;
 char buff[200] = "";
 char payload[200] = "";
-char signature[65] = "";
 unsigned int msid=0;
 float temperature, humidity;
 
@@ -150,24 +123,16 @@ void loop()
   Serial.println(buff);
 #endif
 
-  // Build the payload (no secret inside it anymore).
+  // Build the payload and include the shared secret.
   snprintf(payload, sizeof(payload),
-           "{\"id\":%d,\"temp\":%.2f,\"hum\":%.2f,\"pir\":%d,\"user\":\"esp32\",\"passwd\":\"adM1np4s5wD\"}",
-           msid, temperature, humidity, digitalRead(PIR));
-
-  // Sign it with the shared HMAC key. The signature goes in a header,
-  // not in the body, so the body bytes that the server hashes are
-  // bit-identical to what we hashed here.
-  compute_hmac_sha256_hex(hmac_key, payload, signature);
+           "{\"id\":%d,\"temp\":%.2f,\"hum\":%.2f,\"pir\":%d,\"secret\":\"%s\"}",
+           msid, temperature, humidity, digitalRead(PIR), esp_secret);
 
   http.begin(wifi, buff);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("ESP-Signature", signature);
 
 #ifdef DEBUG_MODE
   Serial.println(payload);
-  Serial.print("X-ESP-Signature: ");
-  Serial.println(signature);
 #endif
 /*-----------------------END OF HTTP CONNECTION------------------------*/
 

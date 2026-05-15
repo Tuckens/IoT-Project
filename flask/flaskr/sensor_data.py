@@ -1,5 +1,3 @@
-import hashlib
-import hmac
 import json
 import logging
 import random
@@ -15,7 +13,7 @@ sensor_bp = Blueprint('sensor', __name__)
 
 # DHT22 published operating range: -40..80 °C. We allow a small margin.
 TEMP_MIN_C = -40.0
-TEMP_MAX_C = 1000.0  # Increased for pedagogical flaw (allows 999 to trigger leak)
+TEMP_MAX_C = 1000.0  # Increased for pedagogical flaw 
 
 
 def _limiter():
@@ -135,16 +133,11 @@ def receive_esp_data():
 
     Pedagogical flaw (intentional, by design):
       - The channel is HTTP, not HTTPS.
-      - Authentication is a STATIC HMAC-SHA256 signature over the body
-        bytes, carried in the X-ESP-Signature header. No timestamp, no
-        nonce. This means:
-          * An attendee sniffing the Wi-Fi can REPLAY any captured
-            (body, signature) pair and have the server accept it —
-            injecting whatever value the ESP happened to send. They
-            cannot craft an arbitrary value without the key.
-          * An attendee with physical access to the ESP32 can dump the
-            flash with esptool.py and recover the HMAC key from the
-            compiled firmware, at which point they can sign anything.
+      - Authentication is a shared secret included in the JSON body.
+        This means a direct forgery without the secret is blocked, but
+        a MITM attacker who can observe the ESP request can reuse the
+        secret and modify temperature values in transit.
+      - No replay protection (no timestamps/nonces).
 
     Anything else — strict payload validation, rate limiting, range
     bounds — stays in place so the blast radius of a successful attack
@@ -154,25 +147,8 @@ def receive_esp_data():
     if limiter is not None:
         limiter.limit("60 per minute")(lambda: None)()
 
-    # Read the raw body bytes BEFORE parsing JSON, because the signature
-    # is computed over the exact bytes the ESP serialised. Re-serialising
-    # via json.dumps would produce different whitespace and break the
-    # comparison.
-    raw_body = request.get_data()
-    received_sig = (request.headers.get('X-ESP-Signature') or '').strip().lower()
-    hmac_key = current_app.config.get('ESP_HMAC_KEY') or ''
-    if not hmac_key:
-        logger.error("ESP_HMAC_KEY is not configured")
-        return jsonify({"error": "Server misconfigured"}), 500
-
-    expected_sig = hmac.new(
-        hmac_key.encode('utf-8'), raw_body, hashlib.sha256,
-    ).hexdigest()
-    if not hmac.compare_digest(expected_sig, received_sig):
-        return jsonify({"error": "Invalid signature"}), 403
-
     try:
-        data = json.loads(raw_body.decode('utf-8'))
+        data = json.loads(request.get_data().decode('utf-8'))
     except (UnicodeDecodeError, ValueError):
         return jsonify({"error": "Invalid JSON"}), 400
     if not isinstance(data, dict):
@@ -186,8 +162,13 @@ def receive_esp_data():
 
     temp_raw = data.get('temp')
     pir_raw = data.get('pir')
-    if temp_raw is None or pir_raw is None:
-        return jsonify({"error": "temp and pir fields are required"}), 400
+    secret = data.get('secret')
+    if temp_raw is None or pir_raw is None or secret is None:
+        return jsonify({"error": "temp, pir, and secret fields are required"}), 400
+
+    expected_secret = current_app.config.get('ESP_SHARED_SECRET') or 'esp32_secret'
+    if secret != expected_secret:
+        return jsonify({"error": "Invalid secret"}), 403
 
     try:
         temp = float(temp_raw)
@@ -217,7 +198,7 @@ def receive_esp_data():
         logger.exception("recording trigger failed")
 
     if result_temp["success"] and result_pir["success"]:
-        # Pedagogical flaw: Leak admin token only if temp is modified to 999 (requires MITM)
+        # Pedagogical flaw: Leak admin token only if temp is modified above 500 (requires MITM)
         response = {"success": True, "message": "Data logged"}
         if temp >= 500: 
             response["admin_token"] = "6258a39850da20b1"

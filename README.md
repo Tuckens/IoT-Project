@@ -22,7 +22,9 @@
 - Python 3 (Flask)
 
 ## Description
-An IoT sensor platform that collects environmental data and displays it on a live dashboard. The ESP32 reads temperature, humidity, and motion data and sends it to the Raspberry Pi over HTTP. The Pi logs the data, displays real-time charts, streams a live camera feed, and triggers video recordings based on sensor thresholds.
+An IoT sensor platform that collects environmental data and displays it on a live dashboard. The ESP32 reads temperature, humidity, and motion data and sends it to the Raspberry Pi over HTTP using a shared secret in the JSON body. Direct forged sensor posts are blocked without that secret, but an attacker on the network can still perform MITM modifications or replay captured messages.
+
+The Pi logs the data, displays real-time charts, streams a live camera feed, and triggers video recordings based on sensor thresholds.
 
 The system includes user authentication, an admin panel for managing users and settings, and a honeypot API for educational demonstrations.
 

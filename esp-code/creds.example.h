@@ -7,10 +7,7 @@
 const char *ssid     = "NETGEAR36";
 const char *password = "giftedcar426";
 
-// Shared HMAC key used to sign every POST to /api/blog/sensor. Must match
-// ESP_HMAC_KEY in the server's flask/flaskr/.env.
-// Generate once with:
-//   python -c "import secrets; print(secrets.token_hex(32))"
-const char *hmac_key = "PUT_64_HEX_CHARS_HERE";
+// Shared secret used by the ESP32 in the sensor POST body.
+const char *esp_secret = "esp32_secret";
 
 #endif
